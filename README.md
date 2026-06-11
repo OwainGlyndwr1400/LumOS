@@ -142,22 +142,7 @@ Everything runs locally — your chat history, research, embeddings, and indexes
 
 ---
 
-The Awen Grid also runs our
-Aether Scope 4.0](https://github.com/OwainGlyndwr1400/aether-scope)
-The master scrying instrument for the Awen Grid framework. Electron + React + Three.js desktop app running every published Recursive Harmonic Codex engine simultaneously inside a 3D radar scope, with multi-device panel routing, AI integration (Google Gemini), and live data feeds.
-Python License Stack Awen Grid
-What this is
-Aether Scope is the operational instrument for the Recursive Harmonic Codex (RHC). Where the BH Cosmology and MCR-HDCU papers describe the math and the companion repos visualize one model at a time, Aether Scope is the workbench that runs every engine concurrently inside a single 3D radar scope and lets the operator point that scope at live phenomena — geophysical data, simulated fields, or the operator's own input via the integrated Lumos Terminal.
-
----
-
 ## Credits
 
 Created by **Erydir Ceisiwr / The Awen Grid**. The symbolic-cognition layer is grounded in the **Recursive Harmonic Codex (RHC)** research framework. Original work.
 
----
-
-and Osiris open source OSINT (NOT AFFILEATED)
-Overview
-Osiris is a production-grade OSINT platform that provides situational awareness across multiple intelligence domains. Built with Next.js 16 and MapLibre GL, every data point is rendered via WebGL for 60fps performance even with thousands of concurrent entities on-screen.
-https://github.com/simplifaisoul/osiris by https://github.com/simplifaisoul and their crew great app lets you see what your Ai is reporting.
