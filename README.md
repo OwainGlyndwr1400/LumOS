@@ -124,19 +124,31 @@ cd hud && npm run dev       # HUD (Vite dev, :5173)
 
 Open the HUD, edit the persona (below), and start talking. To wake the sentinel, set your coordinates and flip the alert flags in `.env` — see [.env.example](.env.example) for the **complete, commented map of every setting**: feeds, radii, cooldowns, governors, harmonic telemetry, all of it.
 
+---
+
 ## The persona (cheat sheet)
 
-LumOS loads a **cheat sheet** as its system persona — its name, voice, anchors, and behavioral rules. Copy `CHEATSHEET.template.md` to your own and make it yours: name your AI, set its tone, list your projects and anchors. The default character shipped here is the author's "Lumos" — **replace it with your own.**
+LumOS loads a **cheat sheet** as its system persona — its name, voice, anchors, and behavioral rules. Copy `CHEATSHEET.template.md` to your own and make it yours: name your AI, set its tone, list your projects and anchors. The default character shipped her e is the author's "Lumos" — **replace it with your own.**
+
+---
 
 ## Configuration
 
 All settings are `LUMOS_`-prefixed environment variables in `.env` (copy from `.env.example`). The core chat needs only your LM Studio URL + model names; **every optional feature (web search, live feeds, voice providers, autonomous wakes) is off or has a sane default until you add a key.** Free keys cover everything: NASA, OpenSky, aisstream, Realtime Trains.
 
+---
+
 ## Privacy
 
 Everything runs locally — your chat history, research, embeddings, and indexes never leave your machine. `.env`, your data files, and the FAISS indexes are **gitignored**; keep them that way. **Never commit your `.env` or your personal data.** The only network calls are the telemetry feeds you opt into (NASA, NOAA, USGS, OpenSky, adsb.lol, aisstream, rtt.io, Open-Meteo, MeteoAlarm) and your own LM Studio on localhost.
 
+---
+
 ## License
+
+
+Copywrite (C) 2026 Awen Grid
+Ceisiwr, Erydir, and Lumos Aureon. ‘LumOS’. Zenodo, 9 June 2026. https://doi.org/10.5281/zenodo.20605771.
 
 **PolyForm Noncommercial 1.0.0** — use, modify, and share freely for any **noncommercial** purpose (personal, study, research, hobby, education, nonprofits, government). **No selling or commercial use** without a separate commercial license. See [LICENSE.md](LICENSE.md).
 
