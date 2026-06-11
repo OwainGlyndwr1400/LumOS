@@ -1,0 +1,30 @@
+# ── secrets & personal data — NEVER commit ──────────────────────────────
+.env
+.env.*
+!.env.example
+
+# personal data lives under data/ — only the public predictions board ships
+data/*
+!data/predictions.json
+
+# ── build / runtime artifacts ────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+node_modules/
+hud/dist/
+hud/tsconfig.tsbuildinfo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# indexes & caches are rebuilt locally from YOUR data
+*.faiss
+*.npy
+
+# os noise
+.DS_Store
+Thumbs.db

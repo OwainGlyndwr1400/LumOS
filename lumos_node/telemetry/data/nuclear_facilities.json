@@ -1,0 +1,1178 @@
+{
+  "version": 1,
+  "note": "Curated, web-verified (Wikipedia/IAEA PRIS) nuclear-facility locations for situational awareness — NOT targeting. Public information. Coordinates to 4dp (facility-level).",
+  "generated": "2026-05-29",
+  "count": 130,
+  "facilities": [
+    {
+      "name": "Hinkley Point C nuclear power station",
+      "country": "United Kingdom",
+      "lat": 51.2059,
+      "lon": -3.1429,
+      "type": "power",
+      "status": "under_construction",
+      "operator": "NNB Generation Company (EDF Energy)"
+    },
+    {
+      "name": "Hinkley Point B nuclear power station",
+      "country": "United Kingdom",
+      "lat": 51.209,
+      "lon": -3.1275,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Hinkley Point A nuclear power station",
+      "country": "United Kingdom",
+      "lat": 51.2087,
+      "lon": -3.1337,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Oldbury Nuclear Power Station",
+      "country": "United Kingdom",
+      "lat": 51.6489,
+      "lon": -2.5708,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Berkeley Nuclear Power Station",
+      "country": "United Kingdom",
+      "lat": 51.6925,
+      "lon": -2.4936,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Sizewell B nuclear power station",
+      "country": "United Kingdom",
+      "lat": 52.215,
+      "lon": 1.6197,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Sizewell A nuclear power station",
+      "country": "United Kingdom",
+      "lat": 52.215,
+      "lon": 1.6197,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Sizewell C nuclear power station",
+      "country": "United Kingdom",
+      "lat": 52.2193,
+      "lon": 1.6203,
+      "type": "power",
+      "status": "under_construction",
+      "operator": "NNB Generation Company (EDF Energy)"
+    },
+    {
+      "name": "Dungeness B nuclear power station",
+      "country": "United Kingdom",
+      "lat": 50.9138,
+      "lon": 0.9599,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Dungeness A nuclear power station",
+      "country": "United Kingdom",
+      "lat": 50.9132,
+      "lon": 0.9641,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Hartlepool nuclear power station",
+      "country": "United Kingdom",
+      "lat": 54.635,
+      "lon": -1.1808,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Heysham nuclear power station (Heysham 1 & 2)",
+      "country": "United Kingdom",
+      "lat": 54.0289,
+      "lon": -2.9161,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Torness nuclear power station",
+      "country": "United Kingdom",
+      "lat": 55.968,
+      "lon": -2.4091,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF Energy"
+    },
+    {
+      "name": "Hunterston B nuclear power station",
+      "country": "United Kingdom",
+      "lat": 55.7221,
+      "lon": -4.8901,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Hunterston A nuclear power station",
+      "country": "United Kingdom",
+      "lat": 55.7203,
+      "lon": -4.8967,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Wylfa Nuclear Power Station",
+      "country": "United Kingdom",
+      "lat": 53.417,
+      "lon": -4.483,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Trawsfynydd nuclear power station",
+      "country": "United Kingdom",
+      "lat": 52.9249,
+      "lon": -3.9484,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Nuclear Restoration Services"
+    },
+    {
+      "name": "Sellafield (reprocessing & nuclear waste storage)",
+      "country": "United Kingdom",
+      "lat": 54.4205,
+      "lon": -3.4975,
+      "type": "reprocessing",
+      "status": "decommissioning",
+      "operator": "Sellafield Ltd"
+    },
+    {
+      "name": "Capenhurst uranium enrichment plant (Urenco)",
+      "country": "United Kingdom",
+      "lat": 53.258,
+      "lon": -2.95,
+      "type": "enrichment",
+      "status": "operational",
+      "operator": "Urenco UK"
+    },
+    {
+      "name": "Springfields nuclear fuel fabrication site",
+      "country": "United Kingdom",
+      "lat": 53.7775,
+      "lon": -2.8081,
+      "type": "fuel_fabrication",
+      "status": "operational",
+      "operator": "Springfields Fuels Ltd (Westinghouse Electric UK)"
+    },
+    {
+      "name": "AWE Aldermaston",
+      "country": "United Kingdom",
+      "lat": 51.3693,
+      "lon": -1.1405,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "AWE Nuclear Security Technologies (UK MoD)"
+    },
+    {
+      "name": "HMNB Clyde (Faslane) submarine base",
+      "country": "United Kingdom",
+      "lat": 56.0661,
+      "lon": -4.8175,
+      "type": "naval",
+      "status": "operational",
+      "operator": "Royal Navy (UK MoD)"
+    },
+    {
+      "name": "Gravelines Nuclear Power Station",
+      "country": "France",
+      "lat": 51.0153,
+      "lon": 2.1361,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Cattenom Nuclear Power Plant",
+      "country": "France",
+      "lat": 49.4158,
+      "lon": 6.2181,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Paluel Nuclear Power Plant",
+      "country": "France",
+      "lat": 49.8581,
+      "lon": 0.6356,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Tricastin Nuclear Power Plant",
+      "country": "France",
+      "lat": 44.3297,
+      "lon": 4.7322,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Flamanville Nuclear Power Plant",
+      "country": "France",
+      "lat": 49.5364,
+      "lon": -1.8817,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Civaux Nuclear Power Plant",
+      "country": "France",
+      "lat": 46.4567,
+      "lon": 0.6528,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Bugey Nuclear Power Plant",
+      "country": "France",
+      "lat": 45.7983,
+      "lon": 5.2708,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "Golfech Nuclear Power Plant",
+      "country": "France",
+      "lat": 44.1067,
+      "lon": 0.8453,
+      "type": "power",
+      "status": "operational",
+      "operator": "EDF"
+    },
+    {
+      "name": "La Hague reprocessing plant",
+      "country": "France",
+      "lat": 49.6783,
+      "lon": -1.8794,
+      "type": "reprocessing",
+      "status": "operational",
+      "operator": "Orano"
+    },
+    {
+      "name": "Olkiluoto Nuclear Power Plant",
+      "country": "Finland",
+      "lat": 61.2369,
+      "lon": 21.4408,
+      "type": "power",
+      "status": "operational",
+      "operator": "Teollisuuden Voima (TVO)"
+    },
+    {
+      "name": "Loviisa Nuclear Power Plant",
+      "country": "Finland",
+      "lat": 60.3722,
+      "lon": 26.3472,
+      "type": "power",
+      "status": "operational",
+      "operator": "Fortum"
+    },
+    {
+      "name": "Forsmark Nuclear Power Plant",
+      "country": "Sweden",
+      "lat": 60.4033,
+      "lon": 18.1667,
+      "type": "power",
+      "status": "operational",
+      "operator": "Vattenfall"
+    },
+    {
+      "name": "Ringhals Nuclear Power Plant",
+      "country": "Sweden",
+      "lat": 57.2597,
+      "lon": 12.1108,
+      "type": "power",
+      "status": "operational",
+      "operator": "Vattenfall / Sydkraft Nuclear"
+    },
+    {
+      "name": "Doel Nuclear Power Station",
+      "country": "Belgium",
+      "lat": 51.3247,
+      "lon": 4.2586,
+      "type": "power",
+      "status": "operational",
+      "operator": "Electrabel (Engie)"
+    },
+    {
+      "name": "Tihange Nuclear Power Station",
+      "country": "Belgium",
+      "lat": 50.5346,
+      "lon": 5.2725,
+      "type": "power",
+      "status": "operational",
+      "operator": "Engie Electrabel"
+    },
+    {
+      "name": "Borssele Nuclear Power Station",
+      "country": "Netherlands",
+      "lat": 51.4319,
+      "lon": 3.7167,
+      "type": "power",
+      "status": "operational",
+      "operator": "EPZ"
+    },
+    {
+      "name": "Leibstadt Nuclear Power Plant",
+      "country": "Switzerland",
+      "lat": 47.6031,
+      "lon": 8.1847,
+      "type": "power",
+      "status": "operational",
+      "operator": "Kernkraftwerk Leibstadt AG"
+    },
+    {
+      "name": "Gösgen Nuclear Power Plant",
+      "country": "Switzerland",
+      "lat": 47.3661,
+      "lon": 7.9667,
+      "type": "power",
+      "status": "operational",
+      "operator": "Kernkraftwerk Gösgen-Däniken AG"
+    },
+    {
+      "name": "Temelín Nuclear Power Station",
+      "country": "Czechia",
+      "lat": 49.1801,
+      "lon": 14.3762,
+      "type": "power",
+      "status": "operational",
+      "operator": "ČEZ Group"
+    },
+    {
+      "name": "Dukovany Nuclear Power Station",
+      "country": "Czechia",
+      "lat": 49.085,
+      "lon": 16.1489,
+      "type": "power",
+      "status": "operational",
+      "operator": "ČEZ Group"
+    },
+    {
+      "name": "Mochovce Nuclear Power Plant",
+      "country": "Slovakia",
+      "lat": 48.2639,
+      "lon": 18.4569,
+      "type": "power",
+      "status": "operational",
+      "operator": "Slovenské elektrárne"
+    },
+    {
+      "name": "Paks Nuclear Power Plant",
+      "country": "Hungary",
+      "lat": 46.5725,
+      "lon": 18.8542,
+      "type": "power",
+      "status": "operational",
+      "operator": "Paksi Atomerőmű Zrt."
+    },
+    {
+      "name": "Krško Nuclear Power Plant",
+      "country": "Slovenia",
+      "lat": 45.9383,
+      "lon": 15.5156,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nuklearna Elektrarna Krško (GEN Energija / HEP)"
+    },
+    {
+      "name": "Almaraz Nuclear Power Plant",
+      "country": "Spain",
+      "lat": 39.8081,
+      "lon": -5.6969,
+      "type": "power",
+      "status": "operational",
+      "operator": "CNAT"
+    },
+    {
+      "name": "Zaporizhzhia Nuclear Power Plant",
+      "country": "Ukraine",
+      "lat": 47.5083,
+      "lon": 34.5844,
+      "type": "power",
+      "status": "shutdown",
+      "operator": "Energoatom (de jure) / Rosatom (de facto, under Russian occupation)"
+    },
+    {
+      "name": "Chornobyl Nuclear Power Plant",
+      "country": "Ukraine",
+      "lat": 51.3892,
+      "lon": 30.0994,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "State Agency of Ukraine on Exclusion Zone Management"
+    },
+    {
+      "name": "Rivne Nuclear Power Plant",
+      "country": "Ukraine",
+      "lat": 51.3278,
+      "lon": 25.8917,
+      "type": "power",
+      "status": "operational",
+      "operator": "Energoatom"
+    },
+    {
+      "name": "South Ukraine Nuclear Power Plant",
+      "country": "Ukraine",
+      "lat": 47.8167,
+      "lon": 31.2167,
+      "type": "power",
+      "status": "operational",
+      "operator": "Energoatom"
+    },
+    {
+      "name": "Khmelnytskyi Nuclear Power Plant",
+      "country": "Ukraine",
+      "lat": 50.3014,
+      "lon": 26.6498,
+      "type": "power",
+      "status": "operational",
+      "operator": "Energoatom"
+    },
+    {
+      "name": "Astravets (Belarusian) Nuclear Power Plant",
+      "country": "Belarus",
+      "lat": 54.7611,
+      "lon": 26.0892,
+      "type": "power",
+      "status": "operational",
+      "operator": "State Enterprise Belarusian NPP (Belenergo)"
+    },
+    {
+      "name": "Kursk Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 51.6764,
+      "lon": 35.6064,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Leningrad Nuclear Power Plant (Sosnovy Bor)",
+      "country": "Russia",
+      "lat": 59.8525,
+      "lon": 29.0486,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Novovoronezh Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 51.275,
+      "lon": 39.2,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Balakovo Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 52.0911,
+      "lon": 47.9553,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Kalinin Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 57.9056,
+      "lon": 35.0603,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Rostov Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 47.5993,
+      "lon": 42.3719,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Beloyarsk Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 56.8417,
+      "lon": 61.3225,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Smolensk Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 54.1661,
+      "lon": 33.2392,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Kola Nuclear Power Plant",
+      "country": "Russia",
+      "lat": 67.4648,
+      "lon": 32.4814,
+      "type": "power",
+      "status": "operational",
+      "operator": "Rosenergoatom"
+    },
+    {
+      "name": "Mayak Production Association",
+      "country": "Russia",
+      "lat": 55.7125,
+      "lon": 60.8481,
+      "type": "reprocessing",
+      "status": "operational",
+      "operator": "Rosatom (FSUE Mayak)"
+    },
+    {
+      "name": "Siberian Chemical Combine (Seversk)",
+      "country": "Russia",
+      "lat": 56.6,
+      "lon": 84.85,
+      "type": "enrichment",
+      "status": "operational",
+      "operator": "TVEL (Rosatom)"
+    },
+    {
+      "name": "Ignalina Nuclear Power Plant",
+      "country": "Lithuania",
+      "lat": 55.6044,
+      "lon": 26.56,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Ignalinos Atomine Elektrine (INPP)"
+    },
+    {
+      "name": "Kozloduy Nuclear Power Plant",
+      "country": "Bulgaria",
+      "lat": 43.7461,
+      "lon": 23.7706,
+      "type": "power",
+      "status": "operational",
+      "operator": "Kozloduy NPP / Bulgarian Energy Holding"
+    },
+    {
+      "name": "Cernavoda Nuclear Power Plant",
+      "country": "Romania",
+      "lat": 44.3222,
+      "lon": 28.0572,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nuclearelectrica"
+    },
+    {
+      "name": "Palo Verde Nuclear Generating Station",
+      "country": "United States",
+      "lat": 33.3892,
+      "lon": -112.865,
+      "type": "power",
+      "status": "operational",
+      "operator": "Arizona Public Service"
+    },
+    {
+      "name": "Vogtle Electric Generating Plant",
+      "country": "United States",
+      "lat": 33.1433,
+      "lon": -81.7606,
+      "type": "power",
+      "status": "operational",
+      "operator": "Southern Nuclear"
+    },
+    {
+      "name": "Browns Ferry Nuclear Plant",
+      "country": "United States",
+      "lat": 34.7039,
+      "lon": -87.1186,
+      "type": "power",
+      "status": "operational",
+      "operator": "Tennessee Valley Authority"
+    },
+    {
+      "name": "South Texas Nuclear Generating Station",
+      "country": "United States",
+      "lat": 28.7956,
+      "lon": -96.0489,
+      "type": "power",
+      "status": "operational",
+      "operator": "STP Nuclear Operating Company"
+    },
+    {
+      "name": "Diablo Canyon Power Plant",
+      "country": "United States",
+      "lat": 35.2108,
+      "lon": -120.8561,
+      "type": "power",
+      "status": "operational",
+      "operator": "Pacific Gas and Electric Company"
+    },
+    {
+      "name": "Indian Point Energy Center",
+      "country": "United States",
+      "lat": 41.2697,
+      "lon": -73.9522,
+      "type": "power",
+      "status": "shutdown",
+      "operator": "Holtec International (decommissioning)"
+    },
+    {
+      "name": "Limerick Generating Station",
+      "country": "United States",
+      "lat": 40.2267,
+      "lon": -75.5872,
+      "type": "power",
+      "status": "operational",
+      "operator": "Constellation Energy"
+    },
+    {
+      "name": "Byron Nuclear Generating Station",
+      "country": "United States",
+      "lat": 42.0742,
+      "lon": -89.2819,
+      "type": "power",
+      "status": "operational",
+      "operator": "Constellation Energy"
+    },
+    {
+      "name": "Comanche Peak Nuclear Power Plant",
+      "country": "United States",
+      "lat": 32.2983,
+      "lon": -97.785,
+      "type": "power",
+      "status": "operational",
+      "operator": "Vistra (Luminant)"
+    },
+    {
+      "name": "Turkey Point Nuclear Generating Station",
+      "country": "United States",
+      "lat": 25.4342,
+      "lon": -80.3306,
+      "type": "power",
+      "status": "operational",
+      "operator": "Florida Power & Light"
+    },
+    {
+      "name": "Susquehanna Steam Electric Station",
+      "country": "United States",
+      "lat": 41.0889,
+      "lon": -76.1489,
+      "type": "power",
+      "status": "operational",
+      "operator": "Talen Energy"
+    },
+    {
+      "name": "Oconee Nuclear Station",
+      "country": "United States",
+      "lat": 34.7939,
+      "lon": -82.8981,
+      "type": "power",
+      "status": "operational",
+      "operator": "Duke Energy"
+    },
+    {
+      "name": "Watts Bar Nuclear Plant",
+      "country": "United States",
+      "lat": 35.6028,
+      "lon": -84.7894,
+      "type": "power",
+      "status": "operational",
+      "operator": "Tennessee Valley Authority"
+    },
+    {
+      "name": "Oak Ridge National Laboratory",
+      "country": "United States",
+      "lat": 35.93,
+      "lon": -84.31,
+      "type": "research",
+      "status": "operational",
+      "operator": "UT-Battelle, LLC (US DOE)"
+    },
+    {
+      "name": "Hanford Site",
+      "country": "United States",
+      "lat": 46.6475,
+      "lon": -119.5986,
+      "type": "weapons",
+      "status": "decommissioning",
+      "operator": "US Department of Energy"
+    },
+    {
+      "name": "Savannah River Site",
+      "country": "United States",
+      "lat": 33.25,
+      "lon": -81.65,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "US Department of Energy"
+    },
+    {
+      "name": "Los Alamos National Laboratory",
+      "country": "United States",
+      "lat": 35.8756,
+      "lon": -106.3242,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "Triad National Security, LLC (US DOE/NNSA)"
+    },
+    {
+      "name": "Bruce Nuclear Generating Station",
+      "country": "Canada",
+      "lat": 44.3253,
+      "lon": -81.5994,
+      "type": "power",
+      "status": "operational",
+      "operator": "Bruce Power"
+    },
+    {
+      "name": "Darlington Nuclear Generating Station",
+      "country": "Canada",
+      "lat": 43.8728,
+      "lon": -78.7197,
+      "type": "power",
+      "status": "operational",
+      "operator": "Ontario Power Generation"
+    },
+    {
+      "name": "Pickering Nuclear Generating Station",
+      "country": "Canada",
+      "lat": 43.8117,
+      "lon": -79.0658,
+      "type": "power",
+      "status": "operational",
+      "operator": "Ontario Power Generation"
+    },
+    {
+      "name": "Laguna Verde Nuclear Power Plant",
+      "country": "Mexico",
+      "lat": 19.7208,
+      "lon": -96.4064,
+      "type": "power",
+      "status": "operational",
+      "operator": "Comision Federal de Electricidad (CFE)"
+    },
+    {
+      "name": "Atucha Nuclear Power Plant",
+      "country": "Argentina",
+      "lat": -33.9672,
+      "lon": -59.2075,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nucleoelectrica Argentina"
+    },
+    {
+      "name": "Angra Nuclear Power Plant",
+      "country": "Brazil",
+      "lat": -23.0083,
+      "lon": -44.4572,
+      "type": "power",
+      "status": "operational",
+      "operator": "Eletronuclear"
+    },
+    {
+      "name": "Fukushima Daiichi Nuclear Power Plant",
+      "country": "Japan",
+      "lat": 37.4231,
+      "lon": 141.0331,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Tokyo Electric Power Company (TEPCO)"
+    },
+    {
+      "name": "Fukushima Daini Nuclear Power Plant",
+      "country": "Japan",
+      "lat": 37.3164,
+      "lon": 141.0256,
+      "type": "power",
+      "status": "decommissioning",
+      "operator": "Tokyo Electric Power Company (TEPCO)"
+    },
+    {
+      "name": "Kashiwazaki-Kariwa Nuclear Power Plant",
+      "country": "Japan",
+      "lat": 37.4283,
+      "lon": 138.6017,
+      "type": "power",
+      "status": "operational",
+      "operator": "Tokyo Electric Power Company (TEPCO)"
+    },
+    {
+      "name": "Ōi Nuclear Power Plant",
+      "country": "Japan",
+      "lat": 35.5406,
+      "lon": 135.652,
+      "type": "power",
+      "status": "operational",
+      "operator": "Kansai Electric Power Company"
+    },
+    {
+      "name": "Sendai Nuclear Power Plant",
+      "country": "Japan",
+      "lat": 31.8336,
+      "lon": 130.1897,
+      "type": "power",
+      "status": "operational",
+      "operator": "Kyūshū Electric Power Company"
+    },
+    {
+      "name": "Rokkasho Reprocessing Plant",
+      "country": "Japan",
+      "lat": 40.9625,
+      "lon": 141.3264,
+      "type": "reprocessing",
+      "status": "under_construction",
+      "operator": "Japan Nuclear Fuel Limited (JNFL)"
+    },
+    {
+      "name": "Kori / Shin-Kori Nuclear Power Plant",
+      "country": "South Korea",
+      "lat": 35.3199,
+      "lon": 129.2901,
+      "type": "power",
+      "status": "operational",
+      "operator": "Korea Hydro & Nuclear Power (KHNP)"
+    },
+    {
+      "name": "Hanul Nuclear Power Plant",
+      "country": "South Korea",
+      "lat": 37.0928,
+      "lon": 129.3836,
+      "type": "power",
+      "status": "operational",
+      "operator": "Korea Hydro & Nuclear Power (KHNP)"
+    },
+    {
+      "name": "Hanbit Nuclear Power Plant",
+      "country": "South Korea",
+      "lat": 35.415,
+      "lon": 126.4239,
+      "type": "power",
+      "status": "operational",
+      "operator": "Korea Hydro & Nuclear Power (KHNP)"
+    },
+    {
+      "name": "Wolsong Nuclear Power Plant",
+      "country": "South Korea",
+      "lat": 35.7167,
+      "lon": 129.4778,
+      "type": "power",
+      "status": "operational",
+      "operator": "Korea Hydro & Nuclear Power (KHNP)"
+    },
+    {
+      "name": "Daya Bay Nuclear Power Plant",
+      "country": "China",
+      "lat": 22.5972,
+      "lon": 114.5444,
+      "type": "power",
+      "status": "operational",
+      "operator": "Daya Bay Nuclear Power Operations and Management Co. (CGN)"
+    },
+    {
+      "name": "Tianwan Nuclear Power Plant",
+      "country": "China",
+      "lat": 34.6869,
+      "lon": 119.4597,
+      "type": "power",
+      "status": "operational",
+      "operator": "Jiangsu Nuclear Power Corporation (CNNC)"
+    },
+    {
+      "name": "Hongyanhe Nuclear Power Plant",
+      "country": "China",
+      "lat": 39.7958,
+      "lon": 121.4806,
+      "type": "power",
+      "status": "operational",
+      "operator": "Liaoning Hongyanhe Nuclear Power Company (CGN)"
+    },
+    {
+      "name": "Ningde Nuclear Power Plant",
+      "country": "China",
+      "lat": 27.0444,
+      "lon": 120.2833,
+      "type": "power",
+      "status": "operational",
+      "operator": "Ningde Nuclear Power Co. (CGN)"
+    },
+    {
+      "name": "Fuqing Nuclear Power Plant",
+      "country": "China",
+      "lat": 25.4458,
+      "lon": 119.4472,
+      "type": "power",
+      "status": "operational",
+      "operator": "China National Nuclear Corporation (CNNC)"
+    },
+    {
+      "name": "Yangjiang Nuclear Power Station",
+      "country": "China",
+      "lat": 21.7083,
+      "lon": 112.2611,
+      "type": "power",
+      "status": "operational",
+      "operator": "Yangjiang Nuclear Power Company (CGN)"
+    },
+    {
+      "name": "Taishan Nuclear Power Plant",
+      "country": "China",
+      "lat": 21.9178,
+      "lon": 112.9819,
+      "type": "power",
+      "status": "operational",
+      "operator": "Taishan Nuclear Power Joint Venture Company (CGN / EDF)"
+    },
+    {
+      "name": "Maanshan Nuclear Power Plant",
+      "country": "Taiwan",
+      "lat": 21.9583,
+      "lon": 120.7514,
+      "type": "power",
+      "status": "shutdown",
+      "operator": "Taiwan Power Company (Taipower)"
+    },
+    {
+      "name": "Tarapur Atomic Power Station",
+      "country": "India",
+      "lat": 19.829,
+      "lon": 72.6612,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nuclear Power Corporation of India (NPCIL)"
+    },
+    {
+      "name": "Kudankulam Nuclear Power Plant",
+      "country": "India",
+      "lat": 8.1689,
+      "lon": 77.7125,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nuclear Power Corporation of India (NPCIL)"
+    },
+    {
+      "name": "Kakrapar Atomic Power Station",
+      "country": "India",
+      "lat": 21.2386,
+      "lon": 73.35,
+      "type": "power",
+      "status": "operational",
+      "operator": "Nuclear Power Corporation of India (NPCIL)"
+    },
+    {
+      "name": "Bhabha Atomic Research Centre (Trombay)",
+      "country": "India",
+      "lat": 19.017,
+      "lon": 72.925,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "Department of Atomic Energy (DAE), Government of India"
+    },
+    {
+      "name": "OPAL Research Reactor (Lucas Heights / ANSTO)",
+      "country": "Australia",
+      "lat": -34.0513,
+      "lon": 150.9788,
+      "type": "research",
+      "status": "operational",
+      "operator": "Australian Nuclear Science and Technology Organisation (ANSTO)"
+    },
+    {
+      "name": "Bushehr Nuclear Power Plant",
+      "country": "Iran",
+      "lat": 28.8296,
+      "lon": 50.886,
+      "type": "power",
+      "status": "operational",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Natanz Fuel Enrichment Plant",
+      "country": "Iran",
+      "lat": 33.717,
+      "lon": 51.717,
+      "type": "enrichment",
+      "status": "operational",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Fordow Fuel Enrichment Plant",
+      "country": "Iran",
+      "lat": 34.8845,
+      "lon": 50.9981,
+      "type": "enrichment",
+      "status": "operational",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Khondab (Arak / IR-40) Heavy Water Reactor",
+      "country": "Iran",
+      "lat": 34.3734,
+      "lon": 49.2408,
+      "type": "research",
+      "status": "shutdown",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Isfahan Nuclear Technology Center (Uranium Conversion Facility)",
+      "country": "Iran",
+      "lat": 32.574,
+      "lon": 51.8261,
+      "type": "fuel_fabrication",
+      "status": "operational",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Tehran Research Reactor",
+      "country": "Iran",
+      "lat": 35.7383,
+      "lon": 51.3881,
+      "type": "research",
+      "status": "operational",
+      "operator": "Atomic Energy Organization of Iran"
+    },
+    {
+      "name": "Parchin Military Complex",
+      "country": "Iran",
+      "lat": 35.5272,
+      "lon": 51.7778,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "Iranian Ministry of Defence"
+    },
+    {
+      "name": "Chashma Nuclear Power Complex (CHASNUPP)",
+      "country": "Pakistan",
+      "lat": 32.3903,
+      "lon": 71.4625,
+      "type": "power",
+      "status": "operational",
+      "operator": "Pakistan Atomic Energy Commission"
+    },
+    {
+      "name": "Karachi Nuclear Power Plant (KANUPP)",
+      "country": "Pakistan",
+      "lat": 24.8486,
+      "lon": 66.7819,
+      "type": "power",
+      "status": "operational",
+      "operator": "Pakistan Atomic Energy Commission"
+    },
+    {
+      "name": "Kahuta (Khan Research Laboratories) Enrichment Facility",
+      "country": "Pakistan",
+      "lat": 33.35,
+      "lon": 73.23,
+      "type": "enrichment",
+      "status": "operational",
+      "operator": "Khan Research Laboratories / Pakistan Atomic Energy Commission"
+    },
+    {
+      "name": "Khushab Nuclear Complex (Plutonium Production Reactors)",
+      "country": "Pakistan",
+      "lat": 32.0054,
+      "lon": 72.1889,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "Pakistan Atomic Energy Commission"
+    },
+    {
+      "name": "Yongbyon Nuclear Scientific Research Center",
+      "country": "North Korea",
+      "lat": 39.8,
+      "lon": 125.754,
+      "type": "mixed",
+      "status": "operational",
+      "operator": "DPRK General Bureau of Atomic Energy"
+    },
+    {
+      "name": "Punggye-ri Nuclear Test Site",
+      "country": "North Korea",
+      "lat": 41.2781,
+      "lon": 129.0875,
+      "type": "weapons",
+      "status": "shutdown",
+      "operator": "DPRK (Korean People's Army / nuclear weapons program)"
+    },
+    {
+      "name": "Shimon Peres Negev Nuclear Research Center (Dimona)",
+      "country": "Israel",
+      "lat": 31.0013,
+      "lon": 35.1445,
+      "type": "weapons",
+      "status": "operational",
+      "operator": "Israel Atomic Energy Commission"
+    },
+    {
+      "name": "Soreq Nuclear Research Center",
+      "country": "Israel",
+      "lat": 31.8993,
+      "lon": 34.7028,
+      "type": "research",
+      "status": "operational",
+      "operator": "Israel Atomic Energy Commission"
+    },
+    {
+      "name": "Barakah Nuclear Power Plant",
+      "country": "United Arab Emirates",
+      "lat": 23.9678,
+      "lon": 52.2317,
+      "type": "power",
+      "status": "operational",
+      "operator": "Emirates Nuclear Energy Corporation (ENEC)"
+    },
+    {
+      "name": "Akkuyu Nuclear Power Plant",
+      "country": "Turkey",
+      "lat": 36.1444,
+      "lon": 33.5411,
+      "type": "power",
+      "status": "under_construction",
+      "operator": "Rosatom (Akkuyu Nuclear JSC)"
+    },
+    {
+      "name": "Semipalatinsk Test Site",
+      "country": "Kazakhstan",
+      "lat": 50.117,
+      "lon": 78.717,
+      "type": "weapons",
+      "status": "shutdown",
+      "operator": "Former Soviet Union (closed 1991)"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "source": "Tec_Obsidian/03_predictions_falsifiability.csv",
+  "updated": "2026-06-07",
+  "predictions": [
+    {
+      "id": "jwst_asymmetry",
+      "name": "JWST galaxy rotation asymmetry",
+      "observable": "Clockwise/counterclockwise galaxy rotation asymmetry in high-redshift samples.",
+      "value": "66% CW vs 33% CCW; parent spin parameter a/M ≈ 0.33.",
+      "falsifies_if": "No asymmetry in samples > 10⁴ galaxies, or 3σ angular inconsistency.",
+      "scale": "Cosmological",
+      "status": "active",
+      "load_bearing": false
+    },
+    {
+      "id": "cmb_cold_spot",
+      "name": "CMB cold-spot alignment",
+      "observable": "Alignment of galaxy rotation spin axis with CMB cold-spot dipole axis.",
+      "value": "Angular alignment within uncertainty.",
+      "falsifies_if": "3σ statistical inconsistency between the two axes.",
+      "scale": "Cosmological",
+      "status": "active",
+      "load_bearing": false
+    },
+    {
+      "id": "michelson_solstice",
+      "name": "Michelson phase jump at solstice",
+      "observable": "Quantized phase jump in Earth-based Michelson interferometers during solstice.",
+      "value": "ΔΦ = −π/3 (−60°)",
+      "falsifies_if": "No phase jump in coordinated multi-site measurement at solstice 2026 or 2027.",
+      "scale": "~1 km arm length",
+      "status": "active",
+      "load_bearing": false
+    },
+    {
+      "id": "attosecond_tick",
+      "name": "Attosecond entanglement tick stability",
+      "observable": "Universal lower bound on quantum entanglement formation timing.",
+      "value": "232 ± 5 attoseconds",
+      "falsifies_if": "Substrate-dependent variation > 10% across materials.",
+      "scale": "Attosecond / ~70 nm",
+      "status": "partial_confirmation",
+      "load_bearing": false
+    },
+    {
+      "id": "hierarchy_constancy",
+      "name": "Hierarchy-ratio constancy",
+      "observable": "Stability of the EM-to-gravitational force ratio across cosmic epochs.",
+      "value": "Variation < 10⁻⁷ per Hubble time",
+      "falsifies_if": "Coupled α-G drift exceeds bound at 3σ in high-redshift probes.",
+      "scale": "Hubble time",
+      "status": "active",
+      "load_bearing": false
+    }
+  ]
+}
