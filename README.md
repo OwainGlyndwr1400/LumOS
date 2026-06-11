@@ -142,8 +142,8 @@ Everything runs locally — your chat history, research, embeddings, and indexes
 
 ---
 
-The Awen Grid also runs our [https://github.com/simplifaisoul/osiris](https://github.com/OwainGlyndwr1400/aether-scope)
-Aether Scope 4.0
+The Awen Grid also runs our
+Aether Scope 4.0](https://github.com/OwainGlyndwr1400/aether-scope)
 The master scrying instrument for the Awen Grid framework. Electron + React + Three.js desktop app running every published Recursive Harmonic Codex engine simultaneously inside a 3D radar scope, with multi-device panel routing, AI integration (Google Gemini), and live data feeds.
 Python License Stack Awen Grid
 What this is
