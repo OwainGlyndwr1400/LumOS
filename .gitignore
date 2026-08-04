@@ -1,0 +1,34 @@
+.venv/
+.venv-test/
+.uv-cache/
+.uv-python/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.env*
+!.env.example
+# All runtime/private data: memory (FAISS + jsonl), chat logs, notes, sandbox,
+# predictions. NEVER publish — this is Lumos's lived memory + operator content.
+data/
+# Operator's signed standing-orders recipe (keep only the .example template).
+standing_orders.json
+# Local tool write-output dir.
+write path/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+hud/dist/
+*.faiss
+*.npy
+.DS_Store
+Thumbs.db
+
+# Operator-private docs (personal paths, Discord operator ID, backup locations).
+# Excluded for now — add cleaned/redacted versions later if you want them public.
+RUNBOOK.md
+HANDOFF.md
+INTEL_BLUEPRINT.md
+WHITEPAPER.md

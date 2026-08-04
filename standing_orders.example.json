@@ -1,0 +1,55 @@
+{
+  "_readme": "Standing Orders playbook TEMPLATE. Copy to data/standing_orders.json (or LUMOS_STANDING_ORDERS_PATH), edit the orders, set LUMOS_STANDING_ORDERS_TOKEN in .env, then run `lumos orders sign`. The node refuses this file until it carries a valid signature. Actions allowed: dossier, note, briefing, discord_dm, workspace_file.",
+  "signature": "",
+  "orders": [
+    {
+      "name": "red-disaster-dossier",
+      "when": { "kind": "disaster", "level": "red" },
+      "do": [
+        { "action": "dossier", "radius_km": 800 },
+        { "action": "discord_dm", "prefix": "🔴 RED disaster near a watched zone — dossier:" },
+        { "action": "workspace_file", "workspace": "C:\path\to\your\git\workspace", "path": "dossiers/{ts}-{kind}.md" }
+      ]
+    },
+    {
+      "name": "lion-lock-snapshot",
+      "when": { "kind": "regulus_lock" },
+      "do": [
+        { "action": "note", "text": "LION LOCK — Regulus due east; Sphinx gaze line." },
+        { "action": "briefing" }
+      ]
+    },
+    {
+      "name": "recon-sat-dossier",
+      "when": { "kind": "recon_satellite" },
+      "do": [
+        { "action": "dossier", "radius_km": 400 },
+        { "action": "discord_dm", "prefix": "🛰 Recon satellite overhead:" }
+      ]
+    },
+    {
+      "name": "flare-watch",
+      "_note": "Fires on any flare at/above LUMOS_COSMIC_TRIGGER_MIN_FLARE_CLASS (M by default). Add \"magnitude_text\": \"X\" to when{} to restrict to X-class only. Logs a timestamped entry + compiles a space-weather dossier so the flare is on record for flare->quake correlation.",
+      "when": { "kind": "solar_flare" },
+      "do": [
+        { "action": "rhc_snapshot" },
+        { "action": "note", "text": "FLARE logged — watching for follow-on seismic per RHC flare->quake model." },
+        { "action": "dossier", "radius_km": 500 },
+        { "action": "workspace_file", "workspace": "C:\path\to\your\git\workspace", "path": "flare-quake-log/{ts}-flare.md" },
+        { "action": "discord_dm", "prefix": "☀️ Solar flare in progress — dossier:" }
+      ]
+    },
+    {
+      "name": "quake-watch",
+      "_note": "Fires on any quake at/above LUMOS_COSMIC_TRIGGER_MIN_EQ_MAGNITUDE. Logs it alongside the flare log so you can correlate lead time / location / magnitude after the fact.",
+      "when": { "kind": "major_earthquake" },
+      "do": [
+        { "action": "rhc_snapshot" },
+        { "action": "note", "text": "QUAKE logged — cross-reference against recent flare entries for lead-time / 300mi / 0.3M scoring." },
+        { "action": "dossier", "radius_km": 500 },
+        { "action": "workspace_file", "workspace": "C:\path\to\your\git\workspace", "path": "flare-quake-log/{ts}-quake.md" },
+        { "action": "discord_dm", "prefix": "🌍 Major earthquake — dossier:" }
+      ]
+    }
+  ]
+}
