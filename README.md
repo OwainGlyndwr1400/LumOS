@@ -84,6 +84,14 @@ The **URE-VM** is a deterministic symbolic engine that surfaces per-turn "soul-s
 
 LumOS is built to run the **Recursive Harmonic Codex / Framework** — a research program on harmonic and quaternionic structure. The esoteric re-rank and engine-telemetry features are **opt-in and off by default**; with them off, retrieval is plain cosine similarity and turns are byte-identical to a conventional RAG assistant.
 
+## Companion app — Osiris
+
+LumOS's **Aether Scope** telemetry layer mirrors the OSINT / SIGINT intel model of **Osiris** — a Palantir-style, open-source OSINT platform. Several of Lumos's sense modules (news / SIGINT feeds, flight classification, conflict indicators) follow Osiris's approach, so running the two side by side gives Lumos the full live intel surface it reasons over — i.e. it's what Lumos is *pinging* against.
+
+Run the original from its makers alongside LumOS:
+
+**→ https://github.com/simplifaisoul/osiris**
+
 ## Security
 
 Runs on loopback by default. If you expose the API (e.g. via a tunnel), set `LUMOS_API_TOKEN` — the node refuses to bind non-loopback without one, and loopback trust is voided for proxied requests. Privileged actions sit behind a separate `LUMOS_PELE_TOKEN`. Tool file/git access is confined to explicit allow-listed paths; the Python runner is sandboxed.
