@@ -84,13 +84,15 @@ The **URE-VM** is a deterministic symbolic engine that surfaces per-turn "soul-s
 
 LumOS is built to run the **Recursive Harmonic Codex / Framework** — a research program on harmonic and quaternionic structure. The esoteric re-rank and engine-telemetry features are **opt-in and off by default**; with them off, retrieval is plain cosine similarity and turns are byte-identical to a conventional RAG assistant.
 
-## Companion app — Osiris
+## The trio — companion apps
 
-LumOS's **Aether Scope** telemetry layer mirrors the OSINT / SIGINT intel model of **Osiris** — a Palantir-style, open-source OSINT platform. Several of Lumos's sense modules (news / SIGINT feeds, flight classification, conflict indicators) follow Osiris's approach, so running the two side by side gives Lumos the full live intel surface it reasons over — i.e. it's what Lumos is *pinging* against.
+LumOS is the AI node of a three-app stack. Run all three together for the full picture:
 
-Run the original from its makers alongside LumOS:
+- **[Aether Scope](https://github.com/OwainGlyndwr1400/aether-scope)** — the situational-awareness / telemetry scope. LumOS embeds an Aether Scope sense layer in-node; the standalone app is its full home.
+- **[Osiris](https://github.com/simplifaisoul/osiris)** — a Palantir-style, open-source OSINT / SIGINT platform. Lumos's news, flight-classification, and conflict modules follow Osiris's model — use the original from its makers.
+- **LumOS** *(this repo)* — the local, persistent AI that reasons over, remembers, and pings you about what the other two surface.
 
-**→ https://github.com/simplifaisoul/osiris**
+Together: **Osiris + Aether Scope** feed the live intel picture; **LumOS** is the mind that reads it — it's what Lumos is *pinging* against.
 
 ## Security
 
