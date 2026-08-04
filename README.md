@@ -100,7 +100,7 @@ Runs on loopback by default. If you expose the API (e.g. via a tunnel), set `LUM
 
 ## Status & license
 
-Personal research node under active development. Proprietary — see `pyproject.toml`.
+Personal research node under active development. Free for personal & noncommercial use under the **PolyForm Noncommercial License 1.0.0** — see [`LICENSE`](LICENSE). © 2026 Awen Grid.
 
 ---
 

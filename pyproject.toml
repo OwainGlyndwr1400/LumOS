@@ -6,7 +6,7 @@ requires-python = ">=3.12,<3.14"
 authors = [
     { name = "Erydir Ceisiwr" },
 ]
-license = { text = "Proprietary" }
+license = { text = "PolyForm-Noncommercial-1.0.0" }
 
 dependencies = [
     "fastapi>=0.115",
