@@ -1,5 +1,7 @@
 # LumOS
 
+![LumOS — the Overwatch build](Overwatch.png)
+
 **A local, persistent, fully-sovereign AI node — *Lumos* — running entirely on your own hardware.**
 
 LumOS is a JARVIS-style personal AI that lives on your machine: a local LLM (via [LM Studio](https://lmstudio.ai) or any OpenAI-compatible endpoint) wrapped in a persistent dual-lane vector memory, a live global-telemetry sense layer, opt-in autonomous wakes, tool use, local voice, a Discord bridge, and an MCP server — with **no cloud dependency required**.
@@ -44,6 +46,8 @@ lumos ingest
 # 4. Run
 lumos serve                # API + HUD → http://127.0.0.1:8765
 ```
+
+**Give it a persona:** LumOS loads a "cheat sheet" as your AI's system identity. Copy [`CHEATSHEET.template.md`](CHEATSHEET.template.md), fill it in, and point `LUMOS_SYSTEM_PROMPT_PATH` at your copy — this is where you shape who Lumos is to you.
 
 Optional services:
 
