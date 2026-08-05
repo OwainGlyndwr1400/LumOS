@@ -10,8 +10,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .config import Settings, get_settings
 from .llm.lm_studio import LMStudioClient
+from .log import get_logger
 from .ubbm import (
     binary_1001_count,
     binary_diagonal_theta,
@@ -20,6 +23,8 @@ from .ubbm import (
 )
 from .urevm import HALF_PRIME_BASE, PENDINIUM_PRIMES, gcd_substrate
 from .vectors import VectorStore
+
+log = get_logger(__name__)
 
 # Phase F — Prescient flagging thresholds.
 # A chunk is "prescient" when a high-scoring match comes from a long-buried memory:
@@ -186,6 +191,90 @@ def reload_stores() -> None:
     _knowledge_store = None
 
 
+# Circuit breaker: NVIDIA rotates/retires hosted rerank models (the old one now
+# 410s). On a PERMANENT failure (4xx) we disable reranking for the process and log
+# ONCE — retrying a gone endpoint every turn just spams the log and wastes a call.
+# Transient failures (5xx / timeout / 429) do NOT trip it. Reset by restarting.
+_rerank_disabled = False
+
+
+def _rerank_url(settings: Settings) -> str:
+    """Hosted NeMo Retriever reranking endpoint.
+
+    Reranking lives on ai.api.nvidia.com/v1/retrieval/<model-slug>/reranking —
+    a different host+path from the OpenAI-compatible chat base
+    (integrate.api.nvidia.com/v1). Honour an explicit nvidia_rerank_url override;
+    otherwise derive the model-specific path (dots in the slug → underscores,
+    e.g. nvidia/llama-3.2-... → nvidia/llama-3_2-...).
+    """
+    override = (settings.nvidia_rerank_url or "").strip()
+    if override:
+        return override
+    slug = settings.nvidia_rerank_model.replace(".", "_")
+    return f"https://ai.api.nvidia.com/v1/retrieval/{slug}/reranking"
+
+
+async def _nvidia_rerank(query: str, candidates: list, settings: Settings) -> list:
+    """Reorder (score, metadata) candidates most-relevant-first using NVIDIA's
+    NeMo Retriever reranking cross-encoder. Keeps the original cosine scores —
+    only the ORDER changes. Returns the input unchanged on any error (reranking
+    must never break a turn)."""
+    global _rerank_disabled
+    if _rerank_disabled or len(candidates) < 2:
+        return candidates
+    passages = [{"text": (m.get("text") or "")[:2000]} for _s, m in candidates]
+    payload = {
+        "model": settings.nvidia_rerank_model,
+        "query": {"text": query[:2000]},
+        "passages": passages,
+        "truncate": "END",
+    }
+    url = _rerank_url(settings)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                url,
+                headers={"Authorization": f"Bearer {settings.nvidia_api_key.strip()}"},
+                json=payload,
+            )
+            r.raise_for_status()
+            rankings = (r.json() or {}).get("rankings") or []
+    except httpx.HTTPStatusError as e:
+        code = e.response.status_code
+        if code in (400, 401, 403, 404, 405, 410, 422):
+            # Permanent — model/endpoint gone or key rejected. Trip the breaker so
+            # we stop hammering (and log-spamming) a URL that will never recover.
+            _rerank_disabled = True
+            log.warning(
+                "retrieval.nvidia_rerank_disabled",
+                status=code, url=url,
+                hint="rerank model/endpoint gone or rejected — disabled for this run; "
+                     "set a current LUMOS_NVIDIA_RERANK_MODEL (build.nvidia.com) or "
+                     "LUMOS_NVIDIA_RERANK_ENABLED=false",
+            )
+        else:
+            log.info("retrieval.nvidia_rerank_transient", status=code, url=url)
+        return candidates
+    except Exception as e:  # noqa: BLE001 — best-effort; fall back to cosine order
+        log.info("retrieval.nvidia_rerank_failed", error=str(e), url=url)
+        return candidates
+    order = [
+        rk["index"]
+        for rk in rankings
+        if isinstance(rk, dict) and isinstance(rk.get("index"), int)
+    ]
+    if not order:
+        return candidates
+    seen: set[int] = set()
+    reordered = []
+    for i in order:
+        if 0 <= i < len(candidates) and i not in seen:
+            reordered.append(candidates[i])
+            seen.add(i)
+    reordered += [c for i, c in enumerate(candidates) if i not in seen]
+    return reordered
+
+
 async def retrieve(
     query: str,
     *,
@@ -237,6 +326,13 @@ async def retrieve(
     # frictionless noise (similarity < 0.657 = Δ = √32 - 5).
     survived_identity = [(s, m) for s, m in raw_identity if s >= min_score]
     survived_knowledge = [(s, m) for s, m in raw_knowledge if s >= min_score]
+
+    # Phase B.5 — NVIDIA NeMo Retriever reranker (opt-in, off by default). Reorder
+    # the mass-gap survivors by a true cross-encoder relevance score. One /ranking
+    # call per lane; falls back to cosine order on any error, never breaks a turn.
+    if settings.nvidia_rerank_enabled and settings.nvidia_api_key.strip():
+        survived_identity = await _nvidia_rerank(query, survived_identity, settings)
+        survived_knowledge = await _nvidia_rerank(query, survived_knowledge, settings)
 
     # Phases C/D/E — esoteric re-rank (Triple Normalization, Half-Prime Geodesic,
     # UBBM θ-alignment). OFF by default (esoteric_rerank_enabled): these key off

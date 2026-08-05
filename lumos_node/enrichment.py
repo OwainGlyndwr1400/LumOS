@@ -204,6 +204,22 @@ def _pop_jobs(s: Settings, n: int) -> list[dict[str, Any]]:
     return out
 
 
+def _requeue_jobs(s: Settings, jobs: list[dict[str, Any]]) -> None:
+    """Append jobs back to the TAIL of the queue — used when a search backend fails
+    transiently (e.g. rate-limited SearXNG), so the entity is retried later instead
+    of being silently lost."""
+    if not jobs:
+        return
+    qpath = _enrich_dir(s) / _QUEUE_FILE
+    try:
+        with qpath.open("ab") as f:
+            for job in jobs:
+                f.write(orjson.dumps(job))
+                f.write(b"\n")
+    except OSError as e:  # noqa: BLE001
+        log.warning("enrichment.requeue_failed", error=str(e))
+
+
 # ── Distillation + codex append ──────────────────────────────────────────────
 
 def _format_results(results: list[dict[str, Any]], limit: int = 5) -> str:
@@ -389,7 +405,12 @@ def _write_state(s: Settings, st: dict[str, Any]) -> None:
         (_enrich_dir(s) / _STATE_FILE).write_bytes(orjson.dumps(st))
 
 
-async def _process_one(s: Settings, job: dict[str, Any], model: str) -> bool:
+async def _process_one(s: Settings, job: dict[str, Any], model: str) -> str:
+    """Enrich one entity. Returns:
+      'filed' — summarised + indexed (counts against the daily cap);
+      'retry' — the SEARCH backend failed transiently (rate-limited/errored) —
+                caller re-queues so we try again later once it recovers;
+      'drop'  — bad job, or search worked but yielded nothing usable — discard."""
     from .tools.web_tools import web_search
 
     ref = EntityRef(
@@ -397,25 +418,30 @@ async def _process_one(s: Settings, job: dict[str, Any], model: str) -> bool:
         name=str(job.get("name", "")), query=str(job.get("query", "")),
     )
     if not ref.query:
-        return False
+        return "drop"
     try:
         res = await web_search(ref.query, max_results=5)
     except Exception as e:  # noqa: BLE001
         log.info("enrichment.search_failed", key=ref.key, error=str(e))
-        return False
+        return "retry"
+    if res.get("error"):
+        # Every backend failed (e.g. SearXNG/DDG rate-limited/blocked). This is
+        # transient — re-queue rather than lose the entity, and let the loop back off.
+        log.info("enrichment.search_error", key=ref.key, error=str(res.get("error"))[:120])
+        return "retry"
     results = res.get("results") or []
     summary = await _distill(ref, results, model, s.autonomous_max_tokens)
     if summary is None:
-        # Empty distillation — file NOTHING (no codex junk, no index junk), and
-        # warn LOUDLY so a systemic failure is visible in the CLI on day one.
+        # Search worked but nothing usable — file NOTHING (no codex/index junk).
+        # Not transient, so don't retry forever; drop it.
         log.warning("enrichment.distill_empty", key=ref.key, name=ref.name)
-        return False
+        return "drop"
     sources = [r.get("url", "") for r in results if r.get("url")]
     _append_codex(s, ref, summary, sources)          # 1) canonical file (rebuild path)
     chunk = _entity_chunk(ref.key, ref.kind, ref.name, summary)
     appended = await _hot_append_knowledge(chunk, s)  # 2) live index — no re-ingest
     log.info("enrichment.filed", key=ref.key, name=ref.name, hot_appended=appended)
-    return True
+    return "filed"
 
 
 async def enrichment_worker_loop() -> None:
@@ -426,10 +452,12 @@ async def enrichment_worker_loop() -> None:
         log.info("enrichment.disabled")
         return
     interval = max(30, settings.enrichment_poll_interval_seconds)
+    max_backoff = 16.0
+    backoff = 1.0  # grows when the search backend keeps failing; resets on any win
     log.info("enrichment.started", interval_s=interval, daily_cap=settings.enrichment_daily_cap)
     while True:
         try:
-            await asyncio.sleep(interval)
+            await asyncio.sleep(interval * backoff)
             settings = get_settings()
             # Politeness gates: skip while the operator is actively chatting, and
             # respect the daily cap so a big backlog can't hammer web + brain.
@@ -447,11 +475,27 @@ async def enrichment_worker_loop() -> None:
                 continue
             model = settings.model_light
             done = 0
+            retry_jobs: list[dict[str, Any]] = []
             for job in jobs:
-                if await _process_one(settings, job, model):
+                status = await _process_one(settings, job, model)
+                if status == "filed":
                     done += 1
-                if int(state.get("done_today", 0)) + done >= settings.enrichment_daily_cap:
-                    break
+                elif status == "retry":
+                    retry_jobs.append(job)  # transient search failure — try later
+                # "drop" → discard silently
+            if retry_jobs:
+                _requeue_jobs(settings, retry_jobs)
+            # Back off when the WHOLE batch failed transiently (search backend
+            # blocked) so we stop hammering it; reset the instant anything succeeds.
+            # Only 'filed' jobs count against the daily cap, so failures are free.
+            if done > 0:
+                backoff = 1.0
+            elif retry_jobs:
+                backoff = min(max_backoff, backoff * 2)
+                log.info(
+                    "enrichment.backoff", multiplier=backoff,
+                    next_wait_s=int(interval * backoff),
+                )
             state["done_today"] = int(state.get("done_today", 0)) + done
             state["day_iso"] = today
             _write_state(settings, state)

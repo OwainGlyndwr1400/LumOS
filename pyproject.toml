@@ -53,6 +53,12 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
 ]
+# Optional cloud voice: hosted NVIDIA Magpie TTS over the Riva gRPC endpoint.
+# Guarded by tts.nvidia_magpie.is_available(), so the app runs fine without it.
+# Install with:  uv pip install -e ".[voice-nvidia]"   (or  uv pip install nvidia-riva-client)
+voice-nvidia = [
+    "nvidia-riva-client>=2.14",
+]
 
 [project.scripts]
 lumos = "lumos_node.cli:app"

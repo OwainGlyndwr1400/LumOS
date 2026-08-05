@@ -34,10 +34,21 @@ from typing import Any
 
 import httpx
 
-from ..config import get_settings
+from ..config import get_settings, overdrive_on
 from ..log import get_logger
 
 log = get_logger(__name__)
+
+
+def _cloud_brain_active() -> bool:
+    """True when Overdrive has hot-swapped the brain to a cloud provider.
+
+    Cloud bases (NVIDIA/OpenAI/Gemini) have no LM Studio /api/v0 management API,
+    and their models are always resident — so polling, explicit-loading, and
+    pre-warming are all no-ops there. Skipping them avoids a burst of 404s (and,
+    for the ping path, a needless cloud token) on every Overdrive turn.
+    """
+    return overdrive_on()
 
 
 def _management_base_url() -> str:
@@ -63,6 +74,8 @@ async def list_models(timeout: float = 3.0) -> list[dict[str, Any]]:
     Returns empty list on any error (caller treats unknown == "can't poll, fall
     back to JIT-only behavior").
     """
+    if _cloud_brain_active():
+        return []
     url = f"{_management_base_url()}/models"
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -110,6 +123,8 @@ async def explicit_load(model_id: str, timeout: float = 120.0) -> bool:
     long to load from disk + GPU upload. Callers that want faster failure can
     pass a shorter timeout.
     """
+    if _cloud_brain_active():
+        return False
     url = f"{_management_base_url()}/models/load"
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -129,6 +144,9 @@ async def preload_via_ping(model_id: str, timeout: float = 120.0) -> bool:
     missing. The downside vs explicit_load is a tiny token cost (~1 token in,
     1 token out). Both reach the same end state: model resident in VRAM.
     """
+    if _cloud_brain_active():
+        return True
+
     from .lm_studio import ChatMessage, LMStudioClient
 
     client = LMStudioClient(timeout=timeout)
@@ -164,6 +182,15 @@ async def ensure_loaded(target_id: str, timeout: float = 120.0) -> dict[str, Any
     just means we can't report `was_loaded` accurately. Callers should treat
     `polled: False, ok: True` as "swap probably worked, but we can't verify."
     """
+    if _cloud_brain_active():
+        # Cloud model is always resident — nothing to poll, load, or swap.
+        return {
+            "target": target_id,
+            "was_loaded": True,
+            "swap_performed": False,
+            "ok": True,
+            "polled": False,
+        }
     loaded = await currently_loaded()
     polled = bool(loaded)  # empty set might mean unloaded OR poll-failed; conservative
     was_loaded = target_id in loaded

@@ -165,7 +165,13 @@ export default function App() {
   const [voiceProvider, setVoiceProvider] = useState<VoiceProvider>(() => {
     if (typeof window === "undefined") return "browser";
     const v = window.localStorage.getItem("lumos.voice.provider");
-    if (v === "lm_studio" || v === "kokoro_onnx" || v === "browser") return v;
+    if (
+      v === "lm_studio" ||
+      v === "kokoro_onnx" ||
+      v === "browser" ||
+      v === "nvidia_magpie"
+    )
+      return v;
     return "browser";
   });
   const [browserVoiceURI, setBrowserVoiceURI] = useState<string | null>(() => {
@@ -179,6 +185,13 @@ export default function App() {
   const [kokoroVoice, setKokoroVoice] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem("lumos.voice.kokoro") || "af_bella";
+  });
+  const [nvidiaVoice, setNvidiaVoice] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return (
+      window.localStorage.getItem("lumos.voice.nvidia") ||
+      "Magpie-Multilingual.EN-US.Sofia"
+    );
   });
   const [sttProvider, setSTTProvider] = useState<STTProvider>(() => {
     if (typeof window === "undefined") return "browser";
@@ -201,6 +214,7 @@ export default function App() {
     lmStudioVoice,
     lmStudioModel: voicesPayload?.model ?? null,
     kokoroVoice,
+    nvidiaVoice,
   });
 
   useEffect(() => {
@@ -235,6 +249,12 @@ export default function App() {
       window.localStorage.setItem("lumos.voice.kokoro", kokoroVoice);
     }
   }, [kokoroVoice]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && nvidiaVoice) {
+      window.localStorage.setItem("lumos.voice.nvidia", nvidiaVoice);
+    }
+  }, [nvidiaVoice]);
 
   useEffect(() => {
     // Ensure we always have a sensible Kokoro voice id even before
@@ -679,6 +699,8 @@ export default function App() {
           onLMStudioVoiceChange={setLMStudioVoice}
           kokoroVoice={kokoroVoice}
           onKokoroVoiceChange={setKokoroVoice}
+          nvidiaVoice={nvidiaVoice}
+          onNvidiaVoiceChange={setNvidiaVoice}
           voicesPayload={voicesPayload}
           onPreviewTTS={(t: string) => tts.speak(t)}
           sttProvider={sttProvider}

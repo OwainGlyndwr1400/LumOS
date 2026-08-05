@@ -78,7 +78,11 @@ export interface VoicesPayload {
   voices: VoiceOption[];
 }
 
-export type VoiceProvider = "browser" | "kokoro_onnx" | "lm_studio";
+export type VoiceProvider =
+  | "browser"
+  | "kokoro_onnx"
+  | "lm_studio"
+  | "nvidia_magpie";
 
 export type STTProvider = "browser" | "whisper";
 

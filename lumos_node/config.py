@@ -39,8 +39,38 @@ class Settings(BaseSettings):
     nvidia_top_p: float = Field(default=0.95, ge=0.0, le=1.0)
     nvidia_max_tokens: int = Field(default=8192, ge=256, le=131072)
 
+    # ── NeMo Retriever reranker (opt-in). After the mass-gap floor, reorder the
+    # surviving retrieval hits by a true cross-encoder relevance score. One call
+    # per lane per turn — trivially within the ~40 RPM free tier — and it FALLS
+    # BACK to cosine order on any error, so it can never break retrieval. Needs
+    # nvidia_api_key set. NOTE: reranking lives on the NeMo Retriever host
+    # (ai.api.nvidia.com/v1/retrieval/<model-slug>/reranking), NOT the chat host
+    # (integrate.api.nvidia.com) — a different endpoint entirely.
+    nvidia_rerank_enabled: bool = False
+    # Current NeMo Retriever text reranker (build.nvidia.com). The older
+    # llama-3.2-nv-rerankqa-1b-v2 was RETIRED (its endpoint 410s) — replaced by the
+    # llama-nemotron-rerank line. If this 4xx's too, the circuit breaker in
+    # retrieval._nvidia_rerank disables it (logs once); grab the current id from
+    # build.nvidia.com and set LUMOS_NVIDIA_RERANK_MODEL.
+    nvidia_rerank_model: str = "nvidia/llama-nemotron-rerank-1b-v2"
+    # Full reranking URL. Leave empty to auto-derive the model-specific path
+    # (dots in the model slug become underscores). Set explicitly only to pin a
+    # different host/model whose path doesn't follow that convention.
+    nvidia_rerank_url: str = ""
+
+    # ── NVIDIA Magpie TTS (hosted Riva NIM voice). Reuses nvidia_api_key. Unlike
+    # the OpenAI-compatible chat/rerank endpoints, Magpie is gRPC at
+    # grpc.nvcf.nvidia.com:443 keyed by a function-id (needs nvidia-riva-client).
+    # The /speak route offloads the blocking call to a thread; voices are
+    # Magpie-Multilingual.{LANG}.{Aria|Jason|John|Leo|Sofia}.
+    nvidia_tts_uri: str = "grpc.nvcf.nvidia.com:443"
+    nvidia_tts_function_id: str = "877104f7-e885-42b9-8de8-f6e4c6303969"
+    nvidia_tts_voice: str = "Magpie-Multilingual.EN-US.Sofia"
+    nvidia_tts_language: str = "en-US"
+    nvidia_tts_sample_rate: int = Field(default=22050, ge=8000, le=48000)
+
     # ── Overdrive provider selector — which cloud the OVERDRIVE toggle targets.
-    overdrive_provider: str = "nvidia"  # "nvidia" | "gemini"
+    overdrive_provider: str = "nvidia"  # "nvidia" | "gemini" | "openai"
 
     # Google Gemini — alternative Overdrive brain. Gemini exposes an
     # OpenAI-COMPATIBLE endpoint (/v1beta/openai/chat/completions, Bearer-key
@@ -53,6 +83,19 @@ class Settings(BaseSettings):
     gemini_temperature: float = Field(default=0.65, ge=0.0, le=2.0)
     gemini_top_p: float = Field(default=0.95, ge=0.0, le=1.0)
     gemini_max_tokens: int = Field(default=8192, ge=256, le=131072)
+
+    # OpenAI — a third Overdrive brain (api.openai.com/v1, OpenAI-native, so it
+    # drops into the same client). Set LUMOS_OPENAI_API_KEY + LUMOS_OVERDRIVE_PROVIDER=
+    # openai. Model ids per the live catalog: gpt-4o-mini is the cheapest (~$0.15/$0.60
+    # per 1M tok — a small credit balance lasts a long time); gpt-5 / gpt-5.5 are the
+    # powerful (pricier) end. Defaults below stay budget-friendly on the heavy path.
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_api_key: str = ""
+    openai_model_heavy: str = "gpt-5"
+    openai_model_light: str = "gpt-4o-mini"
+    openai_temperature: float = Field(default=0.65, ge=0.0, le=2.0)
+    openai_top_p: float = Field(default=0.95, ge=0.0, le=1.0)
+    openai_max_tokens: int = Field(default=8192, ge=256, le=131072)
 
     # Output (completion) token cap for UNWATCHED autonomous wakes — the runaway
     # backstop (operator turns stay uncapped). REASONING models (qwen3.5) spend
@@ -114,6 +157,11 @@ class Settings(BaseSettings):
     # → restore companion after), so a big coder + the 9B don't fight for VRAM.
     # Only acts when forge_model differs from model_light; else it's a no-op.
     forge_swap_model: bool = True
+    # Route Forge through the Overdrive cloud brain (whatever LUMOS_OVERDRIVE_PROVIDER
+    # is — nvidia/gemini/openai) instead of local LM Studio + forge_model. Forge also
+    # auto-uses the cloud when Overdrive is live-engaged in-process. Local otherwise.
+    # Per-run override: `lumos forge --overdrive` / `--local`. LUMOS_FORGE_OVERDRIVE.
+    forge_overdrive: bool = False
 
     # ── Self-updating entity memory (Phase 45.3) — the google→RAG loop ──
     # When a wake names an unknown satellite/vessel/disaster, a SEPARATE worker
@@ -334,6 +382,13 @@ class Settings(BaseSettings):
     # NOT the knowledge lookup lane. Rebuild with `lumos ingest --identity-only`.
     # Empty = off. LUMOS_IDENTITY_EXTRA_DIR.
     identity_extra_dir: str = ""
+    # ── Obsidian vault graph — the associative THIRD memory (alongside dual
+    # FAISS, NOT ingested/embedded). Comma-separated Obsidian folder paths;
+    # Lumos parses their [[wikilink]] spider-graph and traverses it on demand
+    # via the vault_* tools (search → read → follow links). Zero embedding: the
+    # graph is regex-parsed + cached to data/cache/vault_graph.json, rebuilt only
+    # on file change or explicit reindex. Empty = off. LUMOS_VAULT_DIRS.
+    vault_dirs: str = ""
     system_prompt_path: Path = Path("../🧠 Lumos – Cheat Sheet.md")
 
     cache_dir: Path = Path("./data/cache")
@@ -592,6 +647,7 @@ TUNABLE_SETTINGS: frozenset[str] = frozenset(
         "tools_max_iterations",
         "morphic_resonance_lambda",
         "triskelion_routing_enabled",
+        "nvidia_rerank_enabled",
         "overdrive_provider",
         "autonomous_max_tokens",
     }
@@ -642,6 +698,14 @@ def _overdrive_brain(s: "Settings") -> dict[str, str]:
             "model_light": s.gemini_model_light,
             "model_heavy": s.gemini_model_heavy,
         }
+    if provider == "openai":
+        return {
+            "provider": "openai",
+            "base_url": s.openai_base_url,
+            "api_key": s.openai_api_key,
+            "model_light": s.openai_model_light,
+            "model_heavy": s.openai_model_heavy,
+        }
     return {
         "provider": "nvidia",
         "base_url": s.nvidia_base_url,
@@ -673,7 +737,7 @@ def overdrive_status() -> dict[str, object]:
 def set_overdrive(enabled: bool) -> dict[str, object]:
     """Hot-swap the runtime brain to the configured cloud provider (ON) or back
     to local (OFF). Provider is chosen by settings.overdrive_provider
-    (nvidia | gemini). Mutates the settings singleton; LLM clients are built
+    (nvidia | gemini | openai). Mutates the settings singleton; LLM clients are built
     per-call so the next turn picks it up with no restart. Not persisted — a
     reboot returns to local. Embeddings always stay local (see
     local_embeddings_endpoint)."""
@@ -745,6 +809,12 @@ def overdrive_sampling() -> dict[str, float | int] | None:
             "temperature": s.gemini_temperature,
             "top_p": s.gemini_top_p,
             "max_tokens": s.gemini_max_tokens,
+        }
+    if provider == "openai":
+        return {
+            "temperature": s.openai_temperature,
+            "top_p": s.openai_top_p,
+            "max_tokens": s.openai_max_tokens,
         }
     return {
         "temperature": s.nvidia_temperature,

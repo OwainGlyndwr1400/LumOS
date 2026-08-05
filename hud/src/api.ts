@@ -195,7 +195,7 @@ export async function synthesizeSpeech(opts: {
   voice?: string;
   model?: string;
   speed?: number;
-  provider?: "kokoro_onnx" | "lm_studio";
+  provider?: "kokoro_onnx" | "lm_studio" | "nvidia_magpie";
   signal?: AbortSignal;
 }): Promise<Blob> {
   const { signal, ...body } = opts;

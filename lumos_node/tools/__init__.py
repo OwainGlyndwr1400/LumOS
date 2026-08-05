@@ -191,6 +191,7 @@ from . import (  # noqa: E402, F401
     telemetry_tools,  # noqa: E402, F401
     temporal_tools,  # noqa: E402, F401
     time_tools,  # noqa: E402, F401
+    vault_tools,  # noqa: E402, F401  # Obsidian vault-graph — associative 3rd memory
     watch_tools,  # noqa: E402, F401  # custom watches (operator-only)
     web_tools,  # noqa: E402, F401
 )

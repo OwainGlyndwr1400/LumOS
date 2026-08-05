@@ -29,7 +29,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from .config import get_settings
+from .config import Settings, get_settings
 from .llm.lm_studio import ChatMessage, LMStudioClient
 from .log import get_logger
 from .tools import execute_tool, get_schemas_filtered
@@ -157,10 +157,49 @@ def _trim_messages(messages: list[ChatMessage]) -> list[ChatMessage]:
     return messages[:2] + messages[start:]
 
 
+def _forge_brain(settings: Settings, force_overdrive: bool | None = None) -> dict[str, Any]:
+    """Resolve Forge's LLM endpoint + model.
+
+    Cloud (the configured Overdrive provider — nvidia/gemini/openai) when Overdrive
+    is live-engaged in-process, OR forge_overdrive is set, OR a `--overdrive` run
+    forces it; else local LM Studio + forge_model. So Forge borrows the big cloud
+    coder while Overdrive's on and falls back to the local coder when it's off.
+    max_tokens follows the chosen brain (the cloud provider's output cap vs the
+    local autonomous cap).
+    """
+    from .config import _overdrive_brain, overdrive_on
+
+    if force_overdrive is None:
+        use_cloud = overdrive_on() or settings.forge_overdrive
+    else:
+        use_cloud = force_overdrive
+
+    if use_cloud:
+        b = _overdrive_brain(settings)
+        prov = b["provider"]
+        return {
+            "cloud": True,
+            "provider": prov,
+            "base_url": b["base_url"],
+            "api_key": b["api_key"],
+            "model": b["model_heavy"],
+            "max_tokens": int(getattr(settings, f"{prov}_max_tokens", settings.autonomous_max_tokens)),
+        }
+    return {
+        "cloud": False,
+        "provider": "local",
+        "base_url": settings.lm_studio_base_url,
+        "api_key": settings.lm_studio_api_key,
+        "model": settings.forge_model.strip() or settings.model_heavy,
+        "max_tokens": settings.autonomous_max_tokens,
+    }
+
+
 async def run_forge(
     task: str,
     workspace: str | None = None,
     on_event: EventFn | None = None,
+    force_overdrive: bool | None = None,
 ) -> dict[str, Any]:
     """Run one Forge session. Returns a structured report:
     {ok, iterations, final, workspace, commits, tool_calls, error?}.
@@ -179,7 +218,17 @@ async def run_forge(
     except ValueError as e:
         return {"ok": False, "error": str(e)}
 
-    model = settings.forge_model.strip() or settings.model_heavy
+    brain = _forge_brain(settings, force_overdrive)
+    model = brain["model"]
+    if brain["cloud"] and not (brain["api_key"] or "").strip():
+        return {
+            "ok": False,
+            "error": (
+                f"Forge is set to use the {brain['provider']} cloud brain but no API key "
+                f"is configured for it. Set the provider key in .env, or run "
+                f"`lumos forge --local` to use the local coder."
+            ),
+        }
     plan_file = ws / "FORGE_PLAN.md"
     system = _FORGE_SYSTEM.format(workspace=str(ws), task=task.strip(), plan_file=str(plan_file))
 
@@ -190,14 +239,15 @@ async def run_forge(
     schemas = get_schemas_filtered(FORGE_TOOLS)
     allowed = set(FORGE_TOOLS)
 
-    await _emit(on_event, {"type": "start", "workspace": str(ws), "model": model, "task": task.strip()})
-    log.info("forge.start", workspace=str(ws), model=model, max_iter=settings.forge_max_iterations)
+    await _emit(on_event, {"type": "start", "workspace": str(ws), "model": model, "task": task.strip(), "brain": brain["provider"]})
+    log.info("forge.start", workspace=str(ws), model=model, brain=brain["provider"], cloud=brain["cloud"], max_iter=settings.forge_max_iterations)
 
     # Phase 45.2 — swap a coder brain in for the session, restore the companion
     # after. No-op when forge_model == model_light (same 9B). Relies on LM
     # Studio Auto-Evict, the same mechanism the light/heavy swap already uses.
     swap_back_to: str | None = None
-    should_swap, restore_target = _swap_plan(settings, model)
+    # No local VRAM juggling when Forge is on a cloud brain — nothing to load/evict.
+    should_swap, restore_target = (False, None) if brain["cloud"] else _swap_plan(settings, model)
     if should_swap:
         from .llm import model_manager
         await _emit(on_event, {"type": "swap", "phase": "loading", "model": model})
@@ -218,7 +268,7 @@ async def run_forge(
             }
         await _emit(on_event, {"type": "swap", "phase": "ready", "model": model, "was_loaded": status.get("was_loaded")})
 
-    client = LMStudioClient()
+    client = LMStudioClient(base_url=brain["base_url"], api_key=brain["api_key"])
     final_content = ""
     total_tool_calls = 0
     commits: list[str] = []
@@ -243,7 +293,7 @@ async def run_forge(
                 msg = await client.chat(
                     model, messages,
                     temperature=0.3,          # low — this is engineering, not prose
-                    max_tokens=settings.autonomous_max_tokens,
+                    max_tokens=brain["max_tokens"],
                     tools=schemas,
                 )
             except Exception as e:  # noqa: BLE001 — surface the LLM/HTTP error, don't crash

@@ -34,6 +34,14 @@ const FALLBACK_KOKORO_VOICES: VoiceOption[] = [
   { id: "bm_lewis", label: "Lewis", accent: "British", gender: "male" },
 ];
 
+/** Hosted NVIDIA Magpie (Multilingual) voices — see build.nvidia.com. */
+const MAGPIE_VOICES: { id: string; label: string }[] = [
+  { id: "Magpie-Multilingual.EN-US.Sofia", label: "Sofia · EN-US female" },
+  { id: "Magpie-Multilingual.EN-US.Aria", label: "Aria · EN-US female" },
+  { id: "Magpie-Multilingual.EN-US.Jason", label: "Jason · EN-US male" },
+  { id: "Magpie-Multilingual.EN-US.Leo", label: "Leo · EN-US male" },
+];
+
 interface Props {
   telemetry: Telemetry | null;
   onClose: () => void;
@@ -53,6 +61,8 @@ interface Props {
   onLMStudioVoiceChange: (id: string) => void;
   kokoroVoice: string | null;
   onKokoroVoiceChange: (id: string) => void;
+  nvidiaVoice: string | null;
+  onNvidiaVoiceChange: (id: string) => void;
   voicesPayload: VoicesPayload | null;
   onPreviewTTS: (text: string) => void;
   sttProvider: STTProvider;
@@ -98,6 +108,8 @@ export default function SettingsModal({
   onLMStudioVoiceChange,
   kokoroVoice,
   onKokoroVoiceChange,
+  nvidiaVoice,
+  onNvidiaVoiceChange,
   voicesPayload,
   onPreviewTTS,
   sttProvider,
@@ -269,7 +281,7 @@ export default function SettingsModal({
             </div>
             {/* provider selector — which cloud the toggle targets (off to switch) */}
             <div className="mt-2.5 flex gap-1.5">
-              {(["nvidia", "gemini"] as const).map((p) => {
+              {(["nvidia", "gemini", "openai"] as const).map((p) => {
                 const active = (overdrive?.provider ?? "nvidia") === p;
                 return (
                   <button
@@ -436,7 +448,7 @@ export default function SettingsModal({
                 <span className="font-mono text-2xs uppercase tracking-widest text-muted">
                   provider
                 </span>
-                <div className="flex items-center gap-1 font-mono text-2xs">
+                <div className="flex flex-wrap items-center justify-end gap-1 font-mono text-2xs">
                   <button
                     type="button"
                     onClick={() => onVoiceProviderChange("browser")}
@@ -472,6 +484,18 @@ export default function SettingsModal({
                     }
                   >
                     lm studio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onVoiceProviderChange("nvidia_magpie")}
+                    className={
+                      "rounded-sm border px-2 py-1 transition-colors " +
+                      (voiceProvider === "nvidia_magpie"
+                        ? "border-accent/60 bg-accent/10 text-accent"
+                        : "border-line text-muted hover:text-fg")
+                    }
+                  >
+                    nvidia
                   </button>
                 </div>
               </div>
@@ -515,6 +539,29 @@ export default function SettingsModal({
                   <div className="font-mono text-2xs text-muted">
                     runs locally via kokoro-onnx · first call downloads ~310MB
                     model to ~/.cache/lumos_kokoro
+                  </div>
+                </div>
+              ) : voiceProvider === "nvidia_magpie" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-2xs uppercase tracking-widest text-muted">
+                      voice
+                    </span>
+                    <select
+                      value={nvidiaVoice ?? "Magpie-Multilingual.EN-US.Sofia"}
+                      onChange={(e) => onNvidiaVoiceChange(e.target.value)}
+                      className="max-w-[16rem] truncate rounded-sm border border-line bg-bg px-2 py-1 font-mono text-2xs text-fg outline-none focus:border-accent/50"
+                    >
+                      {MAGPIE_VOICES.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="font-mono text-2xs text-muted">
+                    hosted on the NVIDIA cloud (Magpie TTS) · needs
+                    LUMOS_NVIDIA_API_KEY + <code>uv pip install nvidia-riva-client</code>
                   </div>
                 </div>
               ) : (

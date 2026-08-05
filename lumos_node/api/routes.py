@@ -465,7 +465,7 @@ class SpeakRequest(BaseModel):
     voice: str | None = None
     model: str | None = None
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
-    provider: str = "kokoro_onnx"  # kokoro_onnx | lm_studio
+    provider: str = "kokoro_onnx"  # kokoro_onnx | lm_studio | nvidia_magpie
 
 
 @router.post("/speak")
@@ -476,6 +476,45 @@ async def speak_endpoint(req: SpeakRequest) -> Response:
     # otherwise pass "" to kokoro, which (as of kokoro-onnx v1.0) hard-asserts
     # `voice in self.voices` → every chunk fails → silent empty audio.
     voice = req.voice or settings.lm_studio_tts_default_voice or "af_bella"
+
+    if req.provider == "nvidia_magpie":
+        from ..tts.nvidia_magpie import is_available as magpie_available
+        from ..tts.nvidia_magpie import synthesize as magpie_synthesize
+
+        if not magpie_available():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "nvidia-riva-client not installed. Run "
+                    "`uv pip install nvidia-riva-client` in the lumos_node folder."
+                ),
+            )
+        api_key = (settings.nvidia_api_key or "").strip()
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="LUMOS_NVIDIA_API_KEY not set — required for Magpie (NVIDIA cloud) TTS.",
+            )
+        # Guard against a stale Kokoro voice id leaking in from the HUD: Magpie
+        # voices are namespaced (Magpie-Multilingual.*). Anything else → config default.
+        mvoice = req.voice if (req.voice or "").startswith("Magpie") else settings.nvidia_tts_voice
+        try:
+            audio, mime = await asyncio.to_thread(
+                magpie_synthesize,
+                req.text,
+                voice=mvoice,
+                api_key=api_key,
+                function_id=settings.nvidia_tts_function_id,
+                uri=settings.nvidia_tts_uri,
+                language=settings.nvidia_tts_language,
+                sample_rate_hz=settings.nvidia_tts_sample_rate,
+            )
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(
+                status_code=502,
+                detail=client_error_detail("nvidia_magpie failed", e),
+            ) from e
+        return Response(content=audio, media_type=mime)
 
     if req.provider == "kokoro_onnx":
         from ..tts.kokoro_local import is_available, synthesize

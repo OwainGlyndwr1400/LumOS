@@ -42,6 +42,7 @@ interface Options {
   lmStudioVoice: string | null;
   lmStudioModel: string | null;
   kokoroVoice: string | null;
+  nvidiaVoice: string | null;
 }
 
 interface KokoroStreamState {
@@ -61,7 +62,8 @@ interface BrowserStreamState {
 }
 
 export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
-  const { provider, browserVoiceURI, lmStudioVoice, lmStudioModel, kokoroVoice } = opts;
+  const { provider, browserVoiceURI, lmStudioVoice, lmStudioModel, kokoroVoice, nvidiaVoice } =
+    opts;
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -193,7 +195,7 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
   );
 
   const speakBackendOne = useCallback(
-    async (text: string, backendProvider: "kokoro_onnx" | "lm_studio") => {
+    async (text: string, backendProvider: "kokoro_onnx" | "lm_studio" | "nvidia_magpie") => {
       cancel();
       const myToken = ++cancelTokenRef.current;
       setError(null);
@@ -202,7 +204,9 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
         const voice =
           backendProvider === "kokoro_onnx"
             ? (kokoroVoice ?? undefined)
-            : (lmStudioVoice ?? undefined);
+            : backendProvider === "nvidia_magpie"
+              ? (nvidiaVoice ?? undefined)
+              : (lmStudioVoice ?? undefined);
         const blob = await synthesizeSpeech({
           text: sanitizeSurrogates(text),
           voice,
@@ -228,7 +232,7 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [cancel, kokoroVoice, lmStudioVoice, lmStudioModel],
+    [cancel, kokoroVoice, lmStudioVoice, lmStudioModel, nvidiaVoice],
   );
 
   const speak = useCallback(
@@ -236,6 +240,7 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
       if (!text.trim()) return;
       if (provider === "kokoro_onnx") void speakBackendOne(text, "kokoro_onnx");
       else if (provider === "lm_studio") void speakBackendOne(text, "lm_studio");
+      else if (provider === "nvidia_magpie") void speakBackendOne(text, "nvidia_magpie");
       else speakBrowserOne(text);
     },
     [provider, speakBackendOne, speakBrowserOne],
@@ -340,8 +345,9 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
       if (!text.trim()) return;
       if (provider === "kokoro_onnx") speakStreamingKokoro(text);
       else if (provider === "browser") speakStreamingBrowser(text);
-      else if (provider === "lm_studio") {
-        // Buffer; flushed on endStreaming via speakBackendOne.
+      else if (provider === "lm_studio" || provider === "nvidia_magpie") {
+        // Cloud providers buffer the whole reply and synthesize once on
+        // endStreaming — a single gRPC/HTTP call, friendlier to rate limits.
         lmStudioBufferRef.current += (lmStudioBufferRef.current ? " " : "") + text;
       }
     },
@@ -361,10 +367,10 @@ export function useSpeechSynthesis(opts: Options): SpeechSynthesisHook {
         bs.ended = true;
         finalizeBrowserIfDone();
       }
-    } else if (provider === "lm_studio") {
+    } else if (provider === "lm_studio" || provider === "nvidia_magpie") {
       const buf = lmStudioBufferRef.current;
       lmStudioBufferRef.current = "";
-      if (buf.trim()) void speakBackendOne(buf, "lm_studio");
+      if (buf.trim()) void speakBackendOne(buf, provider);
     }
   }, [provider, finalizeKokoroIfDone, finalizeBrowserIfDone, speakBackendOne]);
 

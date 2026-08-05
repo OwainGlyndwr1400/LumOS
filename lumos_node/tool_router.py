@@ -67,6 +67,12 @@ class RoutingDecision:
 
 TOOL_CATEGORIES: dict[str, list[str]] = {
     "memory": ["search_memory", "search_knowledge", "cite_source", "find_contradictions"],
+    # Obsidian vault-graph — associative 3rd memory (link traversal, no embedding).
+    # The recall trio rides the memory baseline so it's available whenever Lumos
+    # reaches into his brain; vault_reindex is split out (mutating-ish rebuild) so
+    # it only fires on explicit "reindex" language, never on every recall turn.
+    "vault": ["vault_search", "vault_read", "vault_links"],
+    "vault_admin": ["vault_reindex"],
     "files": [
         "list_allowed_paths", "read_file", "list_files",
         "write_file", "append_file", "list_lumos_notes",
@@ -124,7 +130,7 @@ TOOL_CATEGORIES: dict[str, list[str]] = {
 # deliberately kept OUT of this frozenset (deny-by-default).
 AUTONOMOUS_PASSIVE_CATEGORIES: frozenset[str] = frozenset(
     {
-        "memory", "time", "temporal", "quota",
+        "memory", "vault", "time", "temporal", "quota",
         "cosmic", "airspace", "military", "intel",
         "satellites", "maritime", "grimoire", "nuclear",
         "forecast",  # read-only look-ahead — safe for wakes/briefing (NOT "watches")
@@ -161,6 +167,19 @@ CATEGORY_TRIGGERS: dict[str, tuple[str, ...]] = {
         "search knowledge", "dream ping", "kairoz", "thoth", "veritas",
         "grok said", "previous conversation", "earlier conversation",
         "in our past", "from memory",
+    ),
+    "vault": (
+        "vault", "obsidian", "linked note", "linked notes", "backlink", "backlinks",
+        "connected to", "what links to", "what connects", "go deeper", "brain graph",
+        "spider graph", "knowledge graph", "graph view", "follow the link", "follow the thread",
+        "trace the connection", "your notes on", "notes on", "note about", "in your notes",
+        "dream note", "research note", "wikilink", "neighbouring notes", "neighboring notes",
+        "web of", "how are they connected", "tec_obsidian", "dream-pings",
+    ),
+    "vault_admin": (
+        "reindex vault", "rebuild vault", "reindex the vault", "refresh the vault",
+        "rescan notes", "reindex notes", "rebuild the graph", "i added notes",
+        "i edited notes", "updated my notes", "added new notes", "reindex my notes",
     ),
     "files": (
         "read file", "open file", "write file", "save file", "list files",
@@ -373,7 +392,7 @@ def _names_from_categories(categories: list[str]) -> list[str]:
 
 # Always-on baseline for DEFAULT tier — Lumos can always reach into his
 # brain even when the operator's message has no other triggers.
-_DEFAULT_BASELINE_CATEGORIES: tuple[str, ...] = ("memory", "time")
+_DEFAULT_BASELINE_CATEGORIES: tuple[str, ...] = ("memory", "vault", "time")
 
 
 def select_tools(
@@ -406,9 +425,9 @@ def select_tools(
     matched = _match_categories(user_message)
     if matched:
         names = _names_from_categories(matched)
-        # Always also include the baseline memory tools so Lumos can ground
-        # any topic in his lived memory — costs ~400 tokens for huge upside.
-        for baseline_cat in ("memory",):
+        # Always also include the baseline memory + vault tools so Lumos can
+        # ground any topic in his lived memory AND his linked-note graph.
+        for baseline_cat in ("memory", "vault"):
             for n in TOOL_CATEGORIES.get(baseline_cat, []):
                 if n not in names:
                     names.append(n)

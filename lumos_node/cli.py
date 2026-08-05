@@ -345,6 +345,11 @@ def forge(
     workspace: str = typer.Option(
         None, "--workspace", "-w", help="Repo to work in (default: LUMOS_FORGE_WORKSPACE / first git workspace)."
     ),
+    overdrive: bool | None = typer.Option(
+        None, "--overdrive/--local",
+        help="Force the cloud Overdrive provider (--overdrive) or the local coder (--local). "
+             "Default: auto (LUMOS_FORGE_OVERDRIVE, or live Overdrive if run in-process).",
+    ),
 ) -> None:
     """Run a Forge coding session: plan → edit → verify → iterate, in a git workspace."""
     from .forge import run_forge
@@ -352,7 +357,9 @@ def forge(
     def _show(ev: dict) -> None:
         t = ev.get("type")
         if t == "start":
-            console.print(f"[bold cyan]⚒ Forge[/] [dim]{ev['model']}[/] in [dim]{ev['workspace']}[/]")
+            brain = ev.get("brain", "local")
+            via = "" if brain == "local" else f" [magenta]via {brain} ⚡[/]"
+            console.print(f"[bold cyan]⚒ Forge[/] [dim]{ev['model']}[/]{via} in [dim]{ev['workspace']}[/]")
             console.print(f"[dim]task:[/] {ev['task']}\n")
         elif t == "swap":
             phase = ev.get("phase")
@@ -376,7 +383,7 @@ def forge(
                 f"{len(ev.get('commits') or [])} commits · {ev.get('elapsed_s')}s"
             )
 
-    result = asyncio.run(run_forge(task, workspace=workspace, on_event=_show))
+    result = asyncio.run(run_forge(task, workspace=workspace, on_event=_show, force_overdrive=overdrive))
     if not result.get("ok") and result.get("error"):
         console.print(f"[yellow]note:[/] {result['error']}")
     if result.get("final"):
@@ -432,6 +439,66 @@ def search(
             preview = (m.get("text") or "").strip().splitlines()[0][:120]
             label = m.get("conversation_title") or m.get("subject") or m.get("agent") or ""
             console.print(f"  [cyan]{score:.3f}[/]  [dim]{label}[/]  {preview}")
+
+
+@app.command(name="vault-graph")
+def vault_graph_cmd(
+    rebuild: bool = typer.Option(False, "--rebuild", help="Force a full re-parse of the vaults."),
+    search: str = typer.Option("", "--search", help="Search the graph for a topic."),
+    read: str = typer.Option("", "--read", help="Read a note + show its links/backlinks."),
+    links: str = typer.Option("", "--links", help="Show a note's connected neighbourhood."),
+    depth: int = typer.Option(1, "--depth", min=1, max=3),
+) -> None:
+    """Build/inspect the Obsidian vault knowledge-graph (LUMOS_VAULT_DIRS).
+
+    The associative third memory — parses [[wikilinks]] into a graph, no embedding.
+    No args → stats. --search/--read/--links to exercise traversal.
+    """
+    from .knowledge.vault_graph import get_graph
+
+    configure_logging(get_settings().log_level)
+    try:
+        graph = get_graph(refresh=rebuild)
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/]")
+        raise typer.Exit(code=1) from e
+
+    if search:
+        res = graph.search(search)
+        console.print(f"\n[bold]name matches[/] for '{search}':")
+        for h in res["name_matches"]:
+            console.print(f"  [cyan]{h['note']}[/] [dim]({h['vault']} · {h['links']}→ {h['backlinks']}←)[/]")
+        console.print(f"[bold]content matches[/] [dim]({res['content_engine']})[/]:")
+        for h in res["content_matches"]:
+            console.print(f"  [cyan]{h['note']}[/]:{h.get('line', '')}  [dim]{h['snippet']}[/]")
+        return
+    if read:
+        r = graph.read_note(read)
+        if not r:
+            console.print(f"[yellow]no note named {read!r}[/]")
+            raise typer.Exit(code=1)
+        console.print(f"\n[bold]{r.get('note')}[/] [dim]({r.get('vault', '?')})[/]")
+        console.print(f"  → links: {', '.join(r['outgoing']) or '(none)'}")
+        console.print(f"  ← backlinks: {', '.join(r['backlinks']) or '(none)'}")
+        console.print(f"\n{r['text'][:800]}")
+        return
+    if links:
+        n = graph.neighbors(links, depth=depth)
+        console.print(f"\n[bold]{n['note']}[/] — {n['connected_count']} connected (depth {depth}):")
+        for c in n["connected"]:
+            mark = "" if c["exists"] else " [dim](unresolved)[/]"
+            console.print(f"  [cyan]{c['note']}[/]{mark}")
+        return
+
+    st = graph.stats()
+    console.print("\n[bold]vault-graph[/]  [dim](associative 3rd memory — no embedding)[/]")
+    console.print(
+        f"  notes: [green]{st['notes']:,}[/]   edges: [green]{st['edges']:,}[/]   "
+        f"dangling targets: {st['dangling_targets']:,}"
+    )
+    for v, n in st["notes_by_vault"].items():
+        console.print(f"    [dim]{v}[/]: {n:,} notes")
+    console.print(f"  top hubs: [cyan]{', '.join(st['top_hubs'])}[/]")
 
 
 @app.command(name="dream-cycle")

@@ -48,6 +48,13 @@ def _scrub_url(url: str) -> str:
 def _scrub_secrets(text: str) -> str:
     return _SECRET_QS_RE.sub(r"\1<redacted>", text)
 
+
+# Last-good raw payload per endpoint PATH (query stripped). On a fetch failure
+# (e.g. NASA DONKI 5xx outage) or a 202/empty "regenerating" response, serve this
+# so the HUD keeps showing the most recent data instead of "unavailable". Keyed by
+# path (not full URL), so date-parameterised endpoints share one slot and it stays tiny.
+_last_good: dict[str, Any] = {}
+
 log = get_logger(__name__)
 
 
@@ -80,15 +87,23 @@ async def _get_json(client: httpx.AsyncClient, url: str, **kwargs) -> Any:
     try:
         r = await client.get(url, timeout=_TIMEOUT, **kwargs)
         r.raise_for_status()
+        key = _scrub_url(url)
         if r.status_code == 202 or not r.content.strip():
-            log.info("telemetry.no_data", url=_scrub_url(url), status=r.status_code)
-            return None
-        return r.json()
+            log.info("telemetry.no_data", url=key, status=r.status_code)
+            return _last_good.get(key)  # serve last-good while the source regenerates
+        data = r.json()
+        _last_good[key] = data  # remember for outage fallback
+        return data
     except (httpx.HTTPError, ValueError) as e:
+        key = _scrub_url(url)
+        stale = _last_good.get(key)
         log.info(
-            "telemetry.fetch_failed", url=_scrub_url(url), error=_scrub_secrets(str(e))
+            "telemetry.fetch_failed", url=key, error=_scrub_secrets(str(e)),
+            served_stale=stale is not None,
         )
-        return None
+        # Outage fallback: serve the last-good payload for this endpoint so the HUD
+        # keeps showing recent data (None if we've never seen a good response).
+        return stale
 
 
 # ── NOAA SWPC ────────────────────────────────────────────────────────────────
