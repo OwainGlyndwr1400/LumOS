@@ -25,12 +25,15 @@ from ..log import get_logger
 
 log = get_logger(__name__)
 
-# The hosted Magpie NIM HANGS (does not error) when a single request exceeds its
-# input limit — observed live: 64 chars OK, 791 chars hangs indefinitely. So we
-# chunk small and sentence-aware, comfortably under that ceiling, and guard every
-# call with a wall-clock timeout (below) so a pathological chunk can never freeze
-# the whole /speak request the way an over-long one did.
-_MAGPIE_CHUNK_CHARS = 300
+# Magpie's HARD cap is ~400 tokens of ITS OWN sequence units — NOT characters.
+# Dense text (a table row of dates/coords/symbols) expands ~2.7x, so a 297-char
+# chunk measured 708 tokens and was rejected; prose is ~1.3x. No single char cap
+# is safe for both, so we chunk conservatively (below ~2.7x*140 < 400 for dense
+# content) AND recursively halve any chunk the server still rejects as too long
+# (_synthesize_chunk), so nothing is dropped regardless of density. A separate
+# wall-clock timeout guards against the OTHER failure mode: a too-LONG input used
+# to HANG the NIM indefinitely (64 chars OK, 791 froze).
+_MAGPIE_CHUNK_CHARS = 140
 
 # Per-chunk wall-clock deadline. A chunk that hasn't returned by this is treated
 # as a failure (logged + fail-fast) rather than hanging the synthesis request.
@@ -163,6 +166,65 @@ def _synthesize_with_timeout(
         ex.shutdown(wait=False)
 
 
+def _midpoint_split(text: str) -> int:
+    """Index near the middle of text to split at, preferring a whitespace
+    boundary so a word isn't cut in half."""
+    mid = len(text) // 2
+    for off in range(mid):
+        if text[mid - off] == " ":
+            return mid - off
+        if mid + off < len(text) and text[mid + off] == " ":
+            return mid + off
+    return mid  # no space found — hard split
+
+
+def _synthesize_chunk(
+    service: Any,
+    text: str,
+    voice: str,
+    language: str,
+    sample_rate_hz: int,
+    encoding: Any,
+    *,
+    depth: int = 0,
+) -> bytes:
+    """Synthesize one chunk to raw PCM, self-correcting for token density.
+
+    Magpie's real cap is ~400 tokens of ITS OWN units (not characters); dense
+    number/symbol text can overflow it even under the char cap. On that specific
+    "too long" rejection we split the text in half and recurse — so no content is
+    ever dropped, regardless of density. Returns b"" only if a piece is genuinely
+    unrecoverable. Re-raises TimeoutError so synthesize() can fail-fast on the
+    OTHER failure mode (a hang)."""
+    text = text.strip()
+    if not text:
+        return b""
+    try:
+        resp = _synthesize_with_timeout(service, text, voice, language, sample_rate_hz, encoding)
+        return getattr(resp, "audio", b"") or b""
+    except concurrent.futures.TimeoutError:
+        raise  # hang — surface to synthesize() so it aborts the remaining chunks
+    except Exception as e:  # noqa: BLE001
+        over_limit = "maximum sequence length" in str(e) or "longer than" in str(e)
+        if over_limit and depth < 6 and len(text) > 24:
+            mid = _midpoint_split(text)
+            left, right = text[:mid].strip(), text[mid:].strip()
+            if left and right:
+                log.info("magpie.chunk_resplit", chars=len(text), depth=depth)
+                return _synthesize_chunk(
+                    service, left, voice, language, sample_rate_hz, encoding, depth=depth + 1
+                ) + _synthesize_chunk(
+                    service, right, voice, language, sample_rate_hz, encoding, depth=depth + 1
+                )
+        log.warning(
+            "magpie.chunk_failed",
+            chars=len(text),
+            preview=text[:60],
+            error=f"{type(e).__name__}: {e}",
+        )
+        return b""
+
+
 def _pcm_to_wav(pcm: bytes, sample_rate_hz: int) -> bytes:
     """Wrap raw 16-bit mono LPCM bytes in a WAV container (header patched on
     close so players read the correct length)."""
@@ -210,28 +272,17 @@ def synthesize(
 
     pcm_parts: list[bytes] = []
     last_error: Exception | None = None
-    for i, chunk in enumerate(chunks):
+    for chunk in chunks:
         try:
-            resp = _synthesize_with_timeout(
-                service, chunk, voice, language, sample_rate_hz, encoding
-            )
-            audio = getattr(resp, "audio", b"")
-            if audio:
-                pcm_parts.append(audio)
-        except Exception as e:  # noqa: BLE001 - keep going, surface if all fail
-            last_error = e
-            log.warning(
-                "magpie.chunk_failed",
-                index=i,
-                chars=len(chunk),
-                preview=chunk[:60],
-                error=f"{type(e).__name__}: {e}",
-            )
+            audio = _synthesize_chunk(service, chunk, voice, language, sample_rate_hz, encoding)
+        except concurrent.futures.TimeoutError as e:
             # A timeout means this input hit the server's hang threshold — the
             # remaining chunks would stall identically, so fail fast.
-            if isinstance(e, concurrent.futures.TimeoutError):
-                break
-            continue
+            last_error = e
+            log.warning("magpie.aborted_on_timeout", error=str(e))
+            break
+        if audio:
+            pcm_parts.append(audio)
 
     if not pcm_parts:
         raise RuntimeError(
