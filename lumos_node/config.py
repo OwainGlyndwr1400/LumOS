@@ -357,7 +357,8 @@ class Settings(BaseSettings):
     # ALL satellites overhead (not just recon) — every bird above the elevation
     # cut, identity-enriched (country/launch/type). OFF by default: Starlink
     # passes are near-continuous, so this is a firehose without a cooldown.
-    # military_recon is excluded here (recon_satellite kind owns those). LUMOS_ALERT_SAT_ALL_*.
+    # military-classified birds are excluded here (recon_satellite kind owns those).
+    # LUMOS_ALERT_SAT_ALL_*.
     alert_sat_all_enabled: bool = False
     alert_sat_all_min_elevation_deg: float = Field(default=70.0, ge=0.0, le=90.0)
     alert_sat_all_cooldown_minutes: int = Field(default=60, ge=0, le=1440)

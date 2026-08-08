@@ -57,8 +57,13 @@ _MISSION_KEYWORDS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("IRIDIUM", "GLOBALSTAR", "ORBCOMM", "INTELSAT", "INMARSAT", "SES"), "comms"),
     (("GPS", "NAVSTAR", "GLONASS", "GALILEO", "BEIDOU", "QZS", "IRNSS"), "navigation"),
     (("NOAA", "METEOR", "GOES", "METOP", "HIMAWARI", "FENGYUN", "ELEKTRO"), "weather"),
-    (("COSMOS", "USA ", "NROL", "YAOGAN", "OFEQ", "KOSMOS", "SHIYAN", "GAOFEN"), "military_recon"),
-    (("SENTINEL", "LANDSAT", "TERRA", "AQUA", "WORLDVIEW", "PLANET", "DOVE", "SKYSAT", "ICEYE"), "earth_obs"),
+    # Military-affiliated BY NORAD NAME — a tracking-layer heuristic, NOT confirmed
+    # mission. The USA/COSMOS designations cover recon AND comms/nav/early-warning,
+    # so "military" is the honest label; "recon" over-asserts. GAOFEN is China's
+    # CIVILIAN high-resolution EO programme (dual-use at most) → earth_obs.
+    (("COSMOS", "USA ", "NROL", "YAOGAN", "OFEQ", "KOSMOS", "SHIYAN"), "military"),
+    (("SENTINEL", "LANDSAT", "TERRA", "AQUA", "WORLDVIEW", "PLANET", "DOVE", "SKYSAT",
+      "ICEYE", "GAOFEN"), "earth_obs"),
     (("HUBBLE", "TESS", "CHEOPS", "JWST", "XMM", "INTEGRAL"), "science"),
 )
 
@@ -407,7 +412,7 @@ def describe_satellite(st: dict[str, Any]) -> str:
 async def evaluate_all_sats_overhead(settings: Settings) -> list[dict[str, Any]]:
     """Alert-monitor entry — ANY satellite above alert_sat_all_min_elevation_deg.
 
-    military_recon birds are EXCLUDED here (the recon_satellite kind already
+    military birds are EXCLUDED here (the recon_satellite kind already
     covers them at its own threshold — one sat, one kind). Rides the same
     sweep cache as everything else; per-sat ids dedup via the monitor's
     identity cooldown; a source cooldown throttles the kind (Starlink passes
@@ -421,7 +426,7 @@ async def evaluate_all_sats_overhead(settings: Settings) -> list[dict[str, Any]]
         return []
     trips: list[dict[str, Any]] = []
     for st in sats.get("satellites", []):
-        if st.get("mission") == "military_recon":
+        if st.get("mission") == "military":
             continue
         ident = st.get("norad") or st.get("name")
         trips.append({

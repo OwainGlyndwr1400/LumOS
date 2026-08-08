@@ -20,7 +20,10 @@ import hashlib
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..log import get_logger
 from .dreams import KnowledgeChunk
+
+log = get_logger(__name__)
 
 _CSV_MAX_CHARS = 1500     # one theorem row, fully stated
 _TEXT_MAX_CHARS = 1200    # matches the retrieval chunk-budget scale
@@ -122,17 +125,44 @@ def _iter_text_chunks(path: Path) -> Iterator[KnowledgeChunk]:
         yield _make_chunk(path.name, subject, text, seed)
 
 
-def corpus_files(extra_dir: Path) -> list[Path]:
-    """Supported research files under extra_dir, stable order."""
-    if not extra_dir.is_dir():
-        return []
-    return sorted(
-        p for p in extra_dir.rglob("*")
-        if p.is_file() and p.suffix.lower() in _SUPPORTED
-    )
+def corpus_dirs(extra_dir: Path | str | list[Path]) -> list[Path]:
+    """Normalise a corpus location into a list of directories.
+
+    Accepts a single Path, a list of Paths, or a comma-separated string of paths
+    (so LUMOS_KNOWLEDGE_EXTRA_DIR can name several Obsidian vaults at once).
+    Non-existent entries are dropped.
+    """
+    if isinstance(extra_dir, list):
+        candidates = [Path(p).expanduser() for p in extra_dir]
+    elif isinstance(extra_dir, str):
+        candidates = [Path(p.strip()).expanduser() for p in extra_dir.split(",") if p.strip()]
+    else:
+        candidates = [Path(extra_dir).expanduser()]
+    kept = [d for d in candidates if d.is_dir()]
+    # LOUD about drops: a mistyped/duplicated env entry silently shrinking the
+    # corpus is near-impossible to spot from the outside (the build just embeds
+    # less), so name every path that didn't resolve.
+    for d in candidates:
+        if d not in kept:
+            log.warning("corpus.dir_missing", path=str(d))
+    return kept
 
 
-def iter_corpus_chunks(extra_dir: Path) -> Iterator[KnowledgeChunk]:
+def corpus_files(extra_dir: Path | str | list[Path]) -> list[Path]:
+    """Supported research files under extra_dir(s), stable order.
+
+    extra_dir may be one directory or several (list / comma-separated string).
+    """
+    out: list[Path] = []
+    for d in corpus_dirs(extra_dir):
+        out.extend(
+            p for p in d.rglob("*")
+            if p.is_file() and p.suffix.lower() in _SUPPORTED
+        )
+    return sorted(out)
+
+
+def iter_corpus_chunks(extra_dir: Path | str | list[Path]) -> Iterator[KnowledgeChunk]:
     for path in corpus_files(extra_dir):
         if path.suffix.lower() == ".csv":
             yield from _iter_csv_chunks(path)
@@ -140,9 +170,10 @@ def iter_corpus_chunks(extra_dir: Path) -> Iterator[KnowledgeChunk]:
             yield from _iter_text_chunks(path)
 
 
-def corpus_signature(extra_dir: Path) -> tuple[int, float]:
+def corpus_signature(extra_dir: Path | str | list[Path]) -> tuple[int, float]:
     """Aggregate (total_size, max_mtime) so the knowledge manifest can detect
-    corpus changes and trigger a rebuild — mirrors _source_signature."""
+    corpus changes and trigger a rebuild — mirrors _source_signature.
+    Accepts one or several corpus dirs (see corpus_dirs)."""
     files = corpus_files(extra_dir)
     if not files:
         return (0, 0.0)

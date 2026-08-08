@@ -65,14 +65,15 @@ def _source_signature(path: Path) -> tuple[int, float]:
 
 def _manifest_is_fresh(
     manifest: Manifest | None,
-    source: Path,
+    source: Path | None,
     settings: Settings,
-    extra_dir: Path | None = None,
+    extra_dir: Path | str | list[Path] | None = None,
     include_codex: bool = False,
 ) -> bool:
     if manifest is None:
         return False
-    size, mtime = _source_signature(source)
+    # source is optional (corpus-only lane); its signature contributes 0.
+    size, mtime = _source_signature(source) if source else (0, 0.0)
     # Fold the entity codex (knowledge lane only) into the compared signature,
     # symmetric with the build — so a newly-enriched entity marks the lane stale
     # and the next ingest embeds it. Identity lane passes False (no codex there).
@@ -91,7 +92,7 @@ def _manifest_is_fresh(
         size += extra_size
         mtime = max(mtime, extra_mtime)
     return (
-        manifest.source_path == str(source)
+        manifest.source_path == (str(source) if source else "")
         and manifest.source_size == size
         and abs(manifest.source_mtime - mtime) < 1.0
         and manifest.embedding_model == settings.lm_studio_embedding_model
@@ -281,11 +282,19 @@ async def build_knowledge(
     rebuild: bool = False,
 ) -> dict[str, Any]:
     settings = settings or get_settings()
-    source = settings.knowledge_source.expanduser()
-    if not source.is_absolute():
-        source = (Path.cwd() / source).resolve()
-    if not source.exists():
-        raise FileNotFoundError(f"knowledge_source not found: {source}")
+    # knowledge_source (dream_pings.jsonl) is OPTIONAL: set LUMOS_KNOWLEDGE_SOURCE=
+    # empty to build the lane purely from the .md corpus dirs below. The OCR'd-PDF
+    # pings were garbled, so the clean Obsidian vaults can stand alone.
+    # NB: Path("") stringifies to "." (the cwd), so an unset env var would
+    # otherwise resolve the "empty" source to the project dir — treat "." as unset.
+    raw_source = str(settings.knowledge_source).strip()
+    source: Path | None = None
+    if raw_source and raw_source != ".":
+        source = settings.knowledge_source.expanduser()
+        if not source.is_absolute():
+            source = (Path.cwd() / source).resolve()
+        if not source.exists():
+            raise FileNotFoundError(f"knowledge_source not found: {source}")
 
     cache = settings.cache_dir.expanduser()
     if not cache.is_absolute():
@@ -304,12 +313,21 @@ async def build_knowledge(
     # the manifest write below. (It used to be parsed after: with a corpus
     # configured the sizes never matched, so every `lumos ingest` re-embedded
     # the full knowledge lane — a multi-hour surprise on a 600k-chunk store.)
-    extra_dir: Path | None = None
+    # May name SEVERAL dirs (comma-separated) — e.g. the clean Obsidian vaults.
+    extra_dir: list[Path] | None = None
     if settings.knowledge_extra_dir.strip():
-        extra_dir = Path(settings.knowledge_extra_dir.strip()).expanduser()
-        if not extra_dir.is_dir():
-            log.warning("knowledge.extra_dir_missing", path=str(extra_dir))
-            extra_dir = None
+        from .knowledge.corpus import corpus_dirs
+        dirs = corpus_dirs(settings.knowledge_extra_dir)
+        if dirs:
+            extra_dir = dirs
+        else:
+            log.warning("knowledge.extra_dir_missing", path=settings.knowledge_extra_dir)
+
+    if source is None and extra_dir is None:
+        raise FileNotFoundError(
+            "knowledge lane has no source: set LUMOS_KNOWLEDGE_SOURCE (dream_pings.jsonl) "
+            "and/or LUMOS_KNOWLEDGE_EXTRA_DIR (comma-separated .md corpus dirs)."
+        )
 
     if (
         not rebuild
@@ -319,14 +337,20 @@ async def build_knowledge(
         log.info("knowledge.skip", reason="fresh", chunks=existing.chunk_count)
         return {"skipped": True, "chunks": existing.chunk_count, "path": str(index_path)}
 
-    log.info("knowledge.start", source=str(source))
-    ping_total = count_pings(source)
+    log.info(
+        "knowledge.start",
+        source=str(source) if source else "(none — corpus only)",
+        corpus_dirs=[str(d) for d in extra_dir] if extra_dir else [],
+    )
+    ping_total = count_pings(source) if source else 0
     log.info("knowledge.scan", pings=ping_total)
 
     client = LMStudioClient()
     store = VectorStore(dim=settings.embedding_dim)
     try:
-        chunk_iter: Iterator[KnowledgeChunk] = iter_knowledge_chunks(source)
+        chunk_iter: Iterator[KnowledgeChunk] = (
+            iter_knowledge_chunks(source) if source else iter(())
+        )
         if extra_dir is not None:
             from .knowledge.corpus import iter_corpus_chunks
             chunk_iter = itertools.chain(chunk_iter, iter_corpus_chunks(extra_dir))
@@ -358,7 +382,7 @@ async def build_knowledge(
 
     store.save(index_path, meta_path)
     _remove_checkpoint(ckpt_index, ckpt_meta)
-    size, mtime = _source_signature(source)
+    size, mtime = _source_signature(source) if source else (0, 0.0)
     # Fold the corpus aggregate into the manifest signature so editing/adding a
     # corpus file invalidates freshness and the next ingest picks it up.
     if extra_dir is not None:
@@ -372,7 +396,7 @@ async def build_knowledge(
     size += _csize
     mtime = max(mtime, _cmtime)
     manifest = Manifest(
-        source_path=str(source),
+        source_path=str(source) if source else "",
         source_size=size,
         source_mtime=mtime,
         chunk_count=store.size,

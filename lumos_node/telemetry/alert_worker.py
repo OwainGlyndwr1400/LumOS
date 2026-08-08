@@ -256,7 +256,9 @@ async def _evaluate_alerts(settings: Settings) -> list[dict[str, Any]]:
     except Exception as e:  # noqa: BLE001
         log.info("alert.gps_failed", error=str(e))
 
-    # ── Military-recon satellites at high elevation (near-overhead pass).
+    # ── Military-classified satellites at high elevation (near-overhead pass).
+    # NB: "military" is a NORAD-NAME heuristic (tracking layer), not confirmed
+    # mission — the description says so, so a wake doesn't assert "recon" as fact.
     try:
         sats = await satellites.fetch_satellites_overhead(
             lat=lat, lon=lon, min_elevation=settings.alert_sat_min_elevation_deg, limit=50
@@ -264,12 +266,13 @@ async def _evaluate_alerts(settings: Settings) -> list[dict[str, Any]]:
         if sats.get("ok"):
             for st in sats.get("satellites", []):
                 try:
-                    if st.get("mission") == "military_recon":
+                    if st.get("mission") == "military":
                         trips.append(
                             {"id": f"sat:{st['name']}", "kind": "recon_satellite",
                              "description": (
-                                 f"Recon satellite {st['name']} overhead at "
-                                 f"{st['elevation_deg']:.0f}° elevation"
+                                 f"Military-classified satellite {st['name']} "
+                                 f"(NORAD-name heuristic — mission not confirmed) "
+                                 f"overhead at {st['elevation_deg']:.0f}° elevation"
                              ),
                              "data": st}
                         )

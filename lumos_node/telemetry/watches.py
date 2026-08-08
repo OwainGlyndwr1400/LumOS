@@ -233,11 +233,12 @@ async def evaluate_watches(settings: Settings) -> list[dict[str, Any]]:
                 )
                 if sats.get("ok"):
                     for st in sats.get("satellites", []):
-                        if st.get("mission") == "military_recon":
+                        if st.get("mission") == "military":
                             trips.append({
                                 "id": f"{pfx}sat:{st['name']}", "kind": "recon_satellite",
                                 "description": (
-                                    f"[{label}] Recon satellite {st['name']} overhead at "
+                                    f"[{label}] Military-classified satellite {st['name']} "
+                                    f"(NORAD-name heuristic — mission not confirmed) overhead at "
                                     f"{st['elevation_deg']:.0f}° elevation"
                                 ),
                                 "data": {**st, "watch": label, "watch_id": wid},

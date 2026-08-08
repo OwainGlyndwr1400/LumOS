@@ -134,7 +134,8 @@ async def get_conflict_status() -> dict:
         "them. Defaults to operator location. Returns satellites above the horizon "
         "(elevation >= min) with name, NORAD id + international designator, owner "
         "COUNTRY, launch date, object type, mission (station/navigation/comms/"
-        "military_recon/weather/earth_obs/...), elevation + azimuth, range km, and "
+        "military/weather/earth_obs/... — classified by NORAD NAME, a heuristic, "
+        "NOT confirmed mission), elevation + azimuth, range km, and "
         "ground sub-point. Highest-in-sky first. First call after startup takes a "
         "few seconds (propagating the full catalog)."
     ),

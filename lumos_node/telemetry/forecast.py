@@ -223,11 +223,12 @@ async def fetch_sat_passes(
     lon: float | None = None,
     hours: float = 8.0,
     min_elevation: float = 30.0,
-    missions: tuple[str, ...] = ("military_recon",),
+    missions: tuple[str, ...] = ("military",),
     limit: int = 12,
 ) -> dict[str, Any]:
     """Upcoming culminating passes over the observer. Defaults to operator
-    location + military-recon over the next 8 h above 30°. Cached 10 min."""
+    location + military-classified birds over the next 8 h above 30°. ("military"
+    is a NORAD-name heuristic, not confirmed mission.) Cached 10 min."""
     settings = get_settings()
     if lat is None or lon is None:
         lat = settings.operator_lat

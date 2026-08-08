@@ -1,4 +1,4 @@
-"""One-off: count military_recon passes by peak-elevation threshold over next 24h.
+"""One-off: count military passes by peak-elevation threshold over next 24h.
 
 Uses the same SatNOGS feed and classification keywords as
 lumos_node.telemetry.satellites, then runs a 24h propagation per satellite to
@@ -33,8 +33,8 @@ async def main() -> None:
         print("ABORT: no TLEs (SatNOGS unreachable / cache empty)")
         sys.exit(1)
 
-    recon = [t for t in tles if _classify(t["name"]) == "military_recon"]
-    print(f"military_recon subset: {len(recon)} satellites")
+    recon = [t for t in tles if _classify(t["name"]) == "military"]
+    print(f"military subset: {len(recon)} satellites")
     if not recon:
         print("ABORT: classifier produced 0 recon sats")
         sys.exit(1)
