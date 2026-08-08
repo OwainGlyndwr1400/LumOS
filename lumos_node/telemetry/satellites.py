@@ -130,7 +130,9 @@ async def fetch_tle() -> list[dict[str, str]]:
             r.raise_for_status()
             out = parse_tle_text(r.text)
     except (httpx.HTTPError, ValueError) as e:
-        log.info("satellites.celestrak_fetch_failed", error=str(e))
+        # str(e) is EMPTY for several httpx errors (bare ConnectError/ReadTimeout),
+        # which logged a useless "error=" — always carry the exception type.
+        log.info("satellites.celestrak_fetch_failed", error=f"{type(e).__name__}: {e}")
 
     if not out:
         try:
@@ -202,21 +204,40 @@ def parse_satcat_csv(text: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+# Last successfully parsed SATCAT. Without this, one transient CelesTrak blip
+# cached an EMPTY catalog under the full 24 h TTL — so satellite identity
+# enrichment (owner country, launch date, object type) went dark for a whole day
+# off a single failed request. Serve the last good catalog instead.
+_last_good_satcat: dict[str, dict[str, Any]] = {}
+# When we have nothing to serve, cache the empty result only briefly so the next
+# sweep retries — rather than running blind until the 24 h TTL expires.
+_SATCAT_RETRY_TTL = 600
+
+
 async def fetch_satcat() -> dict[str, dict[str, Any]]:
     """NORAD → identity map, cached 24 h (satcat is a slow-moving catalog)."""
+    global _last_good_satcat
     cached = tcache.get("satcat")
     if cached is not None:
         return cached
+    cat: dict[str, dict[str, Any]] = {}
     try:
         async with httpx.AsyncClient() as client:
             r = await client.get(_CELESTRAK_SATCAT, timeout=_SATCAT_TIMEOUT, follow_redirects=True)
             r.raise_for_status()
             cat = parse_satcat_csv(r.text)
     except (httpx.HTTPError, ValueError) as e:
-        log.info("satellites.satcat_fetch_failed", error=str(e))
-        cat = {}
-    log.info("satellites.satcat_loaded", entries=len(cat))
-    tcache.put("satcat", cat)
+        log.info("satellites.satcat_fetch_failed", error=f"{type(e).__name__}: {e}")
+
+    if cat:
+        _last_good_satcat = cat
+        log.info("satellites.satcat_loaded", entries=len(cat))
+        tcache.put("satcat", cat)
+        return cat
+
+    cat = _last_good_satcat
+    log.info("satellites.satcat_loaded", entries=len(cat), served_stale=bool(cat))
+    tcache.put("satcat", cat, ttl_seconds=_SATCAT_RETRY_TTL)
     return cat
 
 

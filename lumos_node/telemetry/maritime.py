@@ -37,6 +37,8 @@ log = get_logger(__name__)
 _AIS_WS = "wss://stream.aisstream.io/v0/stream"
 _COLLECT_SECONDS = 4.0
 _CONNECT_TIMEOUT = 8.0
+_BACKOFF_CAP = 60.0          # transient drops — retry within the minute
+_QUOTA_BACKOFF_CAP = 900.0   # HTTP 429 (quota) — back right off, 15 min
 _NM_PER_KM = 0.539957  # unused but kept for parity with other geo modules
 
 
@@ -291,6 +293,11 @@ async def ais_monitor_loop(lat: float, lon: float, radius_km: float) -> None:
         }
     )
     backoff = 2.0
+    # Normal ceiling for transient drops. A 429 is aisstream refusing on QUOTA,
+    # not a blip — retrying that every minute all day can't clear it and just
+    # paces the log with pointless reconnects, so stretch the ceiling right out
+    # (a healthy connection resets both).
+    backoff_cap = _BACKOFF_CAP
     log.info("maritime.ais_monitor.started", radius_km=radius_km)
     while True:
         healthy = False  # did this connection actually carry frames for a while?
@@ -313,7 +320,12 @@ async def ais_monitor_loop(lat: float, lon: float, radius_km: float) -> None:
             log.info("maritime.ais_monitor.cancelled")
             raise
         except Exception as e:  # noqa: BLE001 — drop/timeout/protocol error
-            log.info("maritime.ais_monitor.disconnected", error=str(e))
+            detail = str(e)
+            log.info(
+                "maritime.ais_monitor.disconnected", error=f"{type(e).__name__}: {detail}"
+            )
+            if "429" in detail:
+                backoff_cap = _QUOTA_BACKOFF_CAP
 
         # Single pacing point for EVERY reconnect (clean close OR error). Reset
         # backoff only when the connection proved healthy (frames flowed > 30 s);
@@ -321,9 +333,10 @@ async def ais_monitor_loop(lat: float, lon: float, radius_km: float) -> None:
         # never spin or hammer aisstream.
         if healthy:
             backoff = 2.0
+            backoff_cap = _BACKOFF_CAP
         try:
             await asyncio.sleep(backoff)
         except asyncio.CancelledError:
             raise
         if not healthy:
-            backoff = min(backoff * 2.0, 60.0)
+            backoff = min(backoff * 2.0, backoff_cap)

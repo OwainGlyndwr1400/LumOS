@@ -29,6 +29,7 @@ log = get_logger(__name__)
 
 _MAX_QUEUE = 256       # per-subscriber backlog before we drop (slow-tab guard)
 _REPLAY_BUFFER = 50    # recent events replayed to a fresh subscriber
+_DEAD_SUBSCRIBER_STRIKES = 50  # consecutive full-queue publishes before eviction
 
 
 class EventBus:
@@ -37,6 +38,10 @@ class EventBus:
     def __init__(self) -> None:
         self._subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
         self._recent: deque[dict[str, Any]] = deque(maxlen=_REPLAY_BUFFER)
+        # Consecutive full-queue strikes per subscriber. A tab that never drains
+        # is gone (closed/frozen/reloaded without a clean disconnect); after
+        # enough strikes we evict it rather than fan out to it forever.
+        self._full_streak: dict[asyncio.Queue[dict[str, Any]], int] = {}
 
     def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=_MAX_QUEUE)
@@ -45,17 +50,42 @@ class EventBus:
 
     def unsubscribe(self, q: asyncio.Queue[dict[str, Any]]) -> None:
         self._subscribers.discard(q)
+        self._full_streak.pop(q, None)
 
     def publish(self, event: dict[str, Any]) -> None:
         """Fan an event out to all subscribers + buffer it for replay.
         Non-blocking: a full subscriber queue drops the event for that client
-        only (its tab is stalled), never the producer."""
+        only (its tab is stalled), never the producer.
+
+        Drops are summarised in ONE log line per publish rather than one per
+        subscriber — a handful of stalled tabs used to emit hundreds of
+        identical lines and bury the real log.
+        """
         self._recent.append(event)
+        dropped = 0
+        dead: list[asyncio.Queue[dict[str, Any]]] = []
         for q in self._subscribers:
             try:
                 q.put_nowait(event)
+                if q in self._full_streak:
+                    del self._full_streak[q]
             except asyncio.QueueFull:
-                log.info("eventbus.subscriber_full_dropped")
+                dropped += 1
+                streak = self._full_streak.get(q, 0) + 1
+                self._full_streak[q] = streak
+                if streak >= _DEAD_SUBSCRIBER_STRIKES:
+                    dead.append(q)
+        # Mutate the set only AFTER iterating it.
+        for q in dead:
+            self._subscribers.discard(q)
+            self._full_streak.pop(q, None)
+        if dropped:
+            log.info(
+                "eventbus.dropped",
+                subscribers=dropped,
+                evicted=len(dead),
+                live=len(self._subscribers),
+            )
 
     def recent(self) -> list[dict[str, Any]]:
         """Snapshot of buffered recent events (replay to a new subscriber)."""
