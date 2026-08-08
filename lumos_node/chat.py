@@ -121,6 +121,13 @@ log = get_logger(__name__)
 # imports this object (one-directional: autonomy → chat, no cycle).
 _TURN_LOCK = asyncio.Lock()
 
+# Fast-path replay pacing (see the `if final_content:` branch). The text is
+# already generated; these only control how it's revealed so the HUD/Discord get
+# a progressive render instead of one instant dump. Total is budgeted, so a long
+# GeoSentinel ping reveals at the same overall speed as a short reply.
+_REPLAY_TOTAL_BUDGET_S = 1.2
+_REPLAY_SLICE_MAX_DELAY_S = 0.02
+
 
 def select_model(
     settings: Settings,
@@ -993,9 +1000,17 @@ class ChatSession:
             # (typewriter feel) although the text is already complete — instant,
             # in-memory, no second generation. Slices concatenate back exactly.
             step = 20
+            # Pace the slices. Without an await between yields the whole loop
+            # runs before the transport ever flushes, so all slices land in one
+            # write and the "typewriter" is invisible — the message just appears.
+            # Budget a fixed total so a long ping doesn't crawl: delay shrinks as
+            # the text grows, and 0 slices/short text stays instant.
+            _slices = max(1, (len(final_content) + step - 1) // step)
+            _delay = min(_REPLAY_SLICE_MAX_DELAY_S, _REPLAY_TOTAL_BUDGET_S / _slices)
             try:
                 for _i in range(0, len(final_content), step):
                     yield final_content[_i : _i + step]
+                    await asyncio.sleep(_delay)
             finally:
                 _commit_turn()  # H12: persist even if disconnected here
         else:
@@ -1049,8 +1064,10 @@ class ChatSession:
             and self.settings.model_swap_preload_after_heavy
             and model == self.settings.model_heavy
         ):
-            import asyncio
-
+            # NB: asyncio is imported at module scope — a local `import asyncio`
+            # here would rebind the name for the WHOLE function, making every
+            # earlier `asyncio.*` use (e.g. the fast-path pacing) raise
+            # UnboundLocalError.
             from .llm import model_manager
             asyncio.create_task(
                 model_manager.preload_via_ping(self.settings.model_light)

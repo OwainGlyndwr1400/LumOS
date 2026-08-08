@@ -5,6 +5,67 @@ import httpx
 from pydantic import BaseModel
 
 from ..config import get_settings, overdrive_on
+from ..log import get_logger
+
+log = get_logger(__name__)
+
+# ── Per-(endpoint, model) API quirks, LEARNED from the provider's own 400 ─────
+# Newer OpenAI reasoning models (gpt-5.x, o-series) reject the classic sampling
+# payload: `max_tokens` must be `max_completion_tokens`, and temperature/top_p
+# must be left at their defaults. Rather than hardcode model-name patterns that
+# go stale every release, we read what the API tells us, apply it, and remember
+# it for the process — so the retry happens at most once per model.
+_QUIRK_COMPLETION_TOKENS = "max_completion_tokens"
+_QUIRK_NO_SAMPLING = "no_sampling"
+_QUIRK_NO_REASONING = "reasoning_effort_none"
+_model_quirks: dict[tuple[str, str], set[str]] = {}
+
+# Quirks that cost real capability get an explicit note — a silent downgrade is
+# worse than a loud one.
+_QUIRK_NOTES: dict[str, str] = {
+    _QUIRK_NO_REASONING: (
+        "model refuses function tools on /v1/chat/completions unless reasoning is "
+        "off. Tools are core to Lumos, so REASONING IS DISABLED for this model. "
+        "To keep reasoning you need the /v1/responses API, or use a tool-native "
+        "model (e.g. gpt-4o) instead."
+    ),
+}
+
+
+def _learn_quirk(text: str) -> str | None:
+    """Map a provider 400 body to a known payload quirk, or None if unrelated."""
+    low = (text or "").lower()
+    rejected = (
+        "does not support" in low
+        or "unsupported value" in low
+        or "unsupported parameter" in low
+        or "not supported" in low
+    )
+    # OpenAI names the replacement ("Use 'max_completion_tokens' instead"), but
+    # accept a bare "'max_tokens' is not supported" too.
+    if "max_completion_tokens" in low or (rejected and "max_tokens" in low):
+        return _QUIRK_COMPLETION_TOKENS
+    # gpt-5.6-terra & friends refuse function tools unless reasoning is off:
+    # "Function tools with reasoning_effort are not supported ... set
+    #  reasoning_effort to 'none'". Lumos always sends tools, so without this
+    # every single turn 400s on those models.
+    if "reasoning_effort" in low:
+        return _QUIRK_NO_REASONING
+    if rejected and ("temperature" in low or "top_p" in low):
+        return _QUIRK_NO_SAMPLING
+    return None
+
+
+def _apply_quirks(payload: dict[str, Any], quirks: set[str]) -> dict[str, Any]:
+    """Reshape a chat payload for a model with known parameter restrictions."""
+    if _QUIRK_COMPLETION_TOKENS in quirks and "max_tokens" in payload:
+        payload["max_completion_tokens"] = payload.pop("max_tokens")
+    if _QUIRK_NO_SAMPLING in quirks:
+        payload.pop("temperature", None)
+        payload.pop("top_p", None)
+    if _QUIRK_NO_REASONING in quirks:
+        payload["reasoning_effort"] = "none"
+    return payload
 
 
 class ChatMessage(BaseModel):
@@ -141,11 +202,21 @@ class LMStudioClient:
         # 400s "Unknown name chat_template_kwargs". Only send it to local.
         if chat_template_kwargs and not overdrive_on():
             payload["chat_template_kwargs"] = chat_template_kwargs
-        resp = await self._client.post(
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json=payload,
-        )
+        quirks = _model_quirks.setdefault((self.base_url, model), set())
+        for _ in range(3):
+            _apply_quirks(payload, quirks)
+            resp = await self._client.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+            )
+            if resp.status_code != 400:
+                break
+            learned = _learn_quirk(resp.text)
+            if learned is None or learned in quirks:
+                break  # a 400 we can't fix — let raise_for_status surface it
+            quirks.add(learned)
+            log.info("llm.quirk_learned", model=model, quirk=learned)
         resp.raise_for_status()
         data = resp.json()
         choices = data.get("choices") or []
@@ -194,38 +265,58 @@ class LMStudioClient:
         # 400s "Unknown name chat_template_kwargs". Only send it to local.
         if chat_template_kwargs and not overdrive_on():
             payload["chat_template_kwargs"] = chat_template_kwargs
-        async with self._client.stream(
-            "POST",
-            f"{self.base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json=payload,
-        ) as resp:
-            resp.raise_for_status()
-            import json
-            async for line in resp.aiter_lines():
-                if not line or not line.startswith("data: "):
-                    continue
-                data = line.removeprefix("data: ").strip()
-                if data == "[DONE]":
-                    yield CompletionChunk(finished=True)
-                    return
-                try:
-                    obj = json.loads(data)
-                except json.JSONDecodeError:
-                    continue  # partial/keepalive line — skip, don't kill the stream
-                usage = obj.get("usage")
-                if usage:
-                    yield CompletionChunk(usage=usage)
-                choices = obj.get("choices") or []
-                if not choices:
-                    continue
-                choice = choices[0]
-                delta = choice.get("delta", {}).get("content", "") or ""
-                if delta:
-                    yield CompletionChunk(delta=delta)
-                # Note: do NOT yield finished=True on finish_reason; the usage
-                # chunk arrives AFTER the finish_reason chunk per the OpenAI
-                # spec. We rely on `[DONE]` as the sole terminal marker.
+        quirks = _model_quirks.setdefault((self.base_url, model), set())
+        for _ in range(3):
+            _apply_quirks(payload, quirks)
+            async with self._client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=payload,
+            ) as resp:
+                # A rejected payload 400s before any SSE body arrives — read the
+                # provider's complaint, learn the quirk, and retry the stream.
+                if resp.status_code == 400:
+                    body = (await resp.aread()).decode("utf-8", errors="replace")
+                    learned = _learn_quirk(body)
+                    if learned is not None and learned not in quirks:
+                        quirks.add(learned)
+                        log.info(
+                    "llm.quirk_learned",
+                    model=model,
+                    quirk=learned,
+                    note=_QUIRK_NOTES.get(learned),
+                )
+                        continue
+                resp.raise_for_status()
+                import json
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data = line.removeprefix("data: ").strip()
+                    if data == "[DONE]":
+                        yield CompletionChunk(finished=True)
+                        return
+                    try:
+                        obj = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue  # partial/keepalive line — skip, don't kill the stream
+                    usage = obj.get("usage")
+                    if usage:
+                        yield CompletionChunk(usage=usage)
+                    choices = obj.get("choices") or []
+                    if not choices:
+                        continue
+                    choice = choices[0]
+                    delta = choice.get("delta", {}).get("content", "") or ""
+                    if delta:
+                        yield CompletionChunk(delta=delta)
+                    # Note: do NOT yield finished=True on finish_reason; the usage
+                    # chunk arrives AFTER the finish_reason chunk per the OpenAI
+                    # spec. We rely on `[DONE]` as the sole terminal marker.
+            # Stream consumed (with or without a [DONE]) — never retry a
+            # successful request; the retry loop exists only for payload 400s.
+            return
 
 
 def _mime_for(fmt: str) -> str:
