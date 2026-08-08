@@ -40,10 +40,12 @@ KNOWLEDGE_MANIFEST = "knowledge.manifest.json"
 
 # Periodically flush the growing index to a SIDECAR (.checkpoint) every ~this
 # many added chunks, so a transient embedding failure (LM Studio restart/timeout)
-# hours into a 600k-chunk run doesn't discard all prior progress. Coarse on
-# purpose: each save rewrites the whole FAISS index (~2.4 GB at 600k×1024-dim),
-# so this bounds worst-case loss to minutes of embedding while keeping cumulative
-# checkpoint write-I/O sane. Sidecar-only — the canonical index is still written
+# deep into a long run doesn't discard all prior progress. Cadence is sized for
+# LARGE corpora (the old 600k-chunk dream_pings store: hours of embedding, each
+# save rewriting a ~2.4 GB index) — today's corpus-only lane (~60k chunks,
+# ~half an hour) rarely even reaches a checkpoint, and the guard costs nothing
+# when unused. Coarse on purpose: bounds worst-case loss to minutes of embedding
+# while keeping cumulative checkpoint write-I/O sane. Sidecar-only — the canonical index is still written
 # exactly once at the end, so a failed run never leaves a partial index in the
 # live path (a `--rebuild` that dies keeps the previous complete index).
 CHECKPOINT_EVERY_CHUNKS = 25_000
@@ -312,7 +314,8 @@ async def build_knowledge(
     # freshness check so the compared signature folds the corpus, symmetric with
     # the manifest write below. (It used to be parsed after: with a corpus
     # configured the sizes never matched, so every `lumos ingest` re-embedded
-    # the full knowledge lane — a multi-hour surprise on a 600k-chunk store.)
+    # the full knowledge lane — historically a multi-hour surprise on the old
+    # 600k-chunk store; still a pointless ~half-hour re-embed today.)
     # May name SEVERAL dirs (comma-separated) — e.g. the clean Obsidian vaults.
     extra_dir: list[Path] | None = None
     if settings.knowledge_extra_dir.strip():

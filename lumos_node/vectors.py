@@ -87,8 +87,9 @@ class VectorStore:
         # Atomic writes: build .tmp siblings, fsync, then os.replace() (an atomic
         # rename on the same volume, Windows + POSIX). A crash / Ctrl-C mid-write
         # would otherwise leave a truncated .faiss that faiss.read_index() cannot
-        # load — bricking EVERY retrieval (each chat turn) until a manual,
-        # multi-hour index rebuild. The old code wrote straight to the live paths.
+        # load — bricking EVERY retrieval (each chat turn) until a manual full
+        # rebuild (~half an hour at today's corpus-only scale; hours at the old
+        # 600k-chunk scale). The old code wrote straight to the live paths.
         tmp_index = index_path.with_name(index_path.name + ".tmp")
         tmp_meta = metadata_path.with_name(metadata_path.name + ".tmp")
         faiss.write_index(self.index, str(tmp_index))

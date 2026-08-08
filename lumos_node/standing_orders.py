@@ -26,6 +26,7 @@ operator's signed orders run.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import hmac
@@ -154,46 +155,68 @@ async def _act_dossier(s: Settings, trip: dict[str, Any], step: dict[str, Any]) 
         orjson.OPT_SERIALIZE_NUMPY).decode(),
         "```",
     ]
-    # Space weather + recent seismic — the context that matters for flare/quake
-    # orders (leads the dossier for those). Best-effort like every feed below.
+    # The four world-state feeds are independent I/O — fetch them CONCURRENTLY
+    # (wall-clock = slowest feed, not the sum) and log any that fail BY NAME.
+    # They used to run serially under contextlib.suppress(Exception), which made
+    # an incomplete dossier indistinguishable from a quiet sky: "satellite feed
+    # down" and "no satellites overhead" rendered identically. Still best-effort
+    # — a failed feed drops its section and never sinks the dossier.
+    from .telemetry import cosmic, fires, gdacs, satellites
+
+    async def _feed(name: str, coro: Any) -> Any:
+        try:
+            return await coro
+        except Exception as e:  # noqa: BLE001 — best-effort feed; log + drop its section
+            log.warning(
+                "orders.dossier_feed_failed", feed=name, error=f"{type(e).__name__}: {e}"
+            )
+            return None
+
+    snap, sats, f, g = await asyncio.gather(
+        _feed("cosmic", cosmic.snapshot_all()),
+        _feed(
+            "satellites",
+            satellites.fetch_satellites_overhead(lat, lon, min_elevation=30, limit=8),
+        ),
+        _feed("fires", fires.fetch_fires_nearby(lat, lon, radius_km=radius, limit=10)),
+        _feed("gdacs", gdacs.fetch_gdacs_events()),
+    )
+
+    # Formatting below stays suppress-guarded per section (a markdown builder
+    # must never raise); FETCH failures were already logged by name above.
+    # Space weather + recent seismic leads — the context that matters most for
+    # flare/quake orders.
     with contextlib.suppress(Exception):
-        from .telemetry import cosmic
-        snap = await cosmic.snapshot_all()
-        geo = snap.get("geomagnetic") or {}
-        sw = snap.get("solar_wind") or {}
-        xr = snap.get("xray") or {}
-        cx: list[str] = []
-        if geo.get("kp") is not None:
-            cx.append(f"Kp {geo['kp']}")
-        if sw.get("speed_kms") is not None:
-            cx.append(f"solar wind {sw['speed_kms']} km/s")
-        if sw.get("bz_nt") is not None:
-            cx.append(f"Bz {sw['bz_nt']} nT")
-        if xr.get("current_class"):
-            cx.append(f"X-ray {xr['current_class']}")
-        eqs = snap.get("earthquakes_recent") or []
-        if cx or eqs:
-            lines += ["", "## Space weather & recent seismic"]
-            if cx:
-                lines.append("- " + " · ".join(cx))
-            for e in eqs[:6]:
-                lines.append(f"- M{e.get('magnitude', '?')} {e.get('place', '')}".rstrip())
+        if snap is not None:
+            geo = snap.get("geomagnetic") or {}
+            sw = snap.get("solar_wind") or {}
+            xr = snap.get("xray") or {}
+            cx: list[str] = []
+            if geo.get("kp") is not None:
+                cx.append(f"Kp {geo['kp']}")
+            if sw.get("speed_kms") is not None:
+                cx.append(f"solar wind {sw['speed_kms']} km/s")
+            if sw.get("bz_nt") is not None:
+                cx.append(f"Bz {sw['bz_nt']} nT")
+            if xr.get("current_class"):
+                cx.append(f"X-ray {xr['current_class']}")
+            eqs = snap.get("earthquakes_recent") or []
+            if cx or eqs:
+                lines += ["", "## Space weather & recent seismic"]
+                if cx:
+                    lines.append("- " + " · ".join(cx))
+                for e in eqs[:6]:
+                    lines.append(f"- M{e.get('magnitude', '?')} {e.get('place', '')}".rstrip())
     with contextlib.suppress(Exception):
-        from .telemetry import satellites
-        sats = await satellites.fetch_satellites_overhead(lat, lon, min_elevation=30, limit=8)
-        if sats.get("ok") and sats.get("satellites"):
+        if sats and sats.get("ok") and sats.get("satellites"):
             lines += ["", "## Satellites overhead (≥30°)"]
             lines += [f"- {satellites.describe_satellite(x)} — {x['elevation_deg']:.0f}°" for x in sats["satellites"]]
     with contextlib.suppress(Exception):
-        from .telemetry import fires
-        f = await fires.fetch_fires_nearby(lat, lon, radius_km=radius, limit=10)
-        if f.get("ok") and f.get("fires"):
+        if f and f.get("ok") and f.get("fires"):
             lines += ["", f"## Fire hotspots within {radius:.0f} km"]
             lines += [f"- ~{x['distance_km']:.0f} km {x['bearing']} ({x['confidence']}, {x.get('instrument','')})" for x in f["fires"]]
     with contextlib.suppress(Exception):
-        from .telemetry import gdacs
-        g = await gdacs.fetch_gdacs_events()
-        if g.get("ok") and g.get("events"):
+        if g and g.get("ok") and g.get("events"):
             top = [e for e in g["events"] if e.get("level_rank", 0) >= 2][:8]
             if top:
                 lines += ["", "## Active GDACS disasters (orange+)"]

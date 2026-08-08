@@ -101,6 +101,17 @@ async def _urevm_heartbeat_loop() -> None:
 async def lifespan(app: FastAPI):
     settings = get_settings()
 
+    # Startup config audit — log every non-default setting ONCE (secrets show as
+    # "<set>", never their values). First line of the boot log answers "what is
+    # this node actually running with?", and a stale duplicate .env line that
+    # silently wins (dotenv is last-key-wins) becomes visible immediately.
+    try:
+        from ..config import non_default_settings
+        overrides = non_default_settings(settings)
+        log.info("api.lifespan.config_audit", count=len(overrides), overrides=overrides)
+    except Exception as e:  # noqa: BLE001 — an audit must never block startup
+        log.warning("api.lifespan.config_audit_failed", error=str(e))
+
     # Phase 2 — server→client push hub for autonomous (alert-wake) messages.
     # Always created (harmless if nothing publishes); the /api/events SSE
     # endpoint and the alert worker both reach it via app.state.

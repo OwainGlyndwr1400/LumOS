@@ -686,6 +686,37 @@ _overdrive_active_provider: str | None = None  # provider in force while ON
 # brain as the "saved local brain", so reverting would never restore local.
 _overdrive_lock = threading.Lock()
 
+# Setting-name substrings whose VALUES must never reach a log line. The audit
+# reports these as "<set>" — presence is the signal, the value is the secret.
+_SECRET_NAME_HINTS = ("key", "token", "secret", "password")
+
+
+def non_default_settings(s: "Settings | None" = None) -> dict[str, str]:
+    """{field: display_value} for every setting that differs from its default.
+
+    The startup config audit: one glance answers "what is this node actually
+    running with?" — and a duplicate/typo'd .env line that silently overrides an
+    earlier one (dotenv is last-key-wins) shows up here instead of needing a
+    hunt. Secret-ish fields (name contains key/token/secret/password) are
+    redacted to "<set>"; long values are truncated for log hygiene.
+    """
+    s = s or get_settings()
+    out: dict[str, str] = {}
+    for name, field in type(s).model_fields.items():
+        try:
+            default = field.get_default(call_default_factory=True)
+            current = getattr(s, name)
+        except Exception:  # noqa: BLE001 — an audit must never break startup
+            continue
+        if current == default:
+            continue
+        if any(h in name.lower() for h in _SECRET_NAME_HINTS):
+            out[name] = "<set>"
+            continue
+        text = str(current)
+        out[name] = text if len(text) <= 120 else text[:117] + "..."
+    return out
+
 
 def _overdrive_brain(s: "Settings") -> dict[str, str]:
     """Resolve the active Overdrive provider's brain (base/key/models) from

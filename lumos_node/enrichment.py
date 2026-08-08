@@ -334,7 +334,9 @@ def iter_entity_codex_chunks(path: Path) -> Iterator[KnowledgeChunk]:
 
 async def _hot_append_knowledge(chunk: KnowledgeChunk, settings: Settings) -> bool:
     """Append ONE chunk to the live on-disk knowledge FAISS + metadata — NO full
-    rebuild (that's ~hours on a 600k-chunk store). Mirrors fish.py's hot-append:
+    rebuild (a full re-embed of the lane: ~half an hour on today's ~60k-chunk
+    corpus-only store, hours on the old 600k-chunk dream_pings one — either way
+    absurd for one chunk). Mirrors fish.py's hot-append:
     embed the chunk, load the store, add, save. Retrievable at the next app
     start; entity_codex.jsonl remains the canonical copy a rebuild re-derives.
     Best-effort — a failure just means "waits for the next rebuild", never fatal.
