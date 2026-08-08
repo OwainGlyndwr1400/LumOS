@@ -17,9 +17,13 @@ from ..log import get_logger
 
 log = get_logger(__name__)
 
-# Kokoro v1.0 has a hard 510-phoneme input limit per call. We keep chunk
-# size well below that in character terms to be safe across dense English.
-KOKORO_CHUNK_CHARS = 400
+# Kokoro v1.0 has a hard 510-PHONEME input limit per call — phonemes, not
+# characters. Plain prose runs ~1.0-1.2 phonemes/char, but emoji/markdown/table
+# text (a GeoSentinel ping) expands far past that, so 400 chars could exceed 510
+# phonemes and the chunk was DROPPED from the audio. Chunk conservatively and
+# recursively halve anything Kokoro still rejects (_create_with_resplit), so no
+# content is lost regardless of density.
+KOKORO_CHUNK_CHARS = 280
 
 # kokoro-onnx v1.0 release files (thewh1teagle/kokoro-onnx on GitHub).
 MODEL_URL = (
@@ -142,6 +146,60 @@ def _split_for_kokoro(text: str, max_chars: int = KOKORO_CHUNK_CHARS) -> list[st
     return chunks
 
 
+def _midpoint_split(text: str) -> int:
+    """Index near the middle of text, preferring a whitespace boundary so a word
+    isn't cut in half."""
+    mid = len(text) // 2
+    for off in range(mid):
+        if text[mid - off] == " ":
+            return mid - off
+        if mid + off < len(text) and text[mid + off] == " ":
+            return mid + off
+    return mid
+
+
+def _create_with_resplit(
+    kokoro: Any,
+    text: str,
+    voice: str,
+    speed: float,
+    lang: str,
+    depth: int = 0,
+) -> tuple[list, int | None, Exception | None]:
+    """Synthesize one chunk, self-correcting for phoneme density.
+
+    Kokoro's cap is 510 PHONEMES; character count only approximates that, so a
+    chunk under the char cap can still overflow (emoji/table-dense text) and
+    raise "index 510 is out of bounds". On that specific overflow we split the
+    text in half and recurse, so the content is spoken instead of dropped.
+    Returns (sample_arrays, sample_rate, last_error).
+    """
+    text = text.strip()
+    if not text:
+        return [], None, None
+    try:
+        samples, sr = kokoro.create(text, voice=voice, speed=speed, lang=lang)
+        return [samples], sr, None
+    except Exception as e:  # noqa: BLE001
+        msg = str(e).lower()
+        overflow = "out of bounds" in msg or "phoneme" in msg or "too long" in msg
+        if overflow and depth < 6 and len(text) > 24:
+            mid = _midpoint_split(text)
+            left, right = text[:mid].strip(), text[mid:].strip()
+            if left and right:
+                log.info("kokoro.chunk_resplit", chars=len(text), depth=depth)
+                lp, lsr, le = _create_with_resplit(kokoro, left, voice, speed, lang, depth + 1)
+                rp, rsr, re_ = _create_with_resplit(kokoro, right, voice, speed, lang, depth + 1)
+                return lp + rp, (lsr or rsr), (le or re_)
+        log.warning(
+            "kokoro.chunk_failed",
+            chars=len(text),
+            preview=text[:60],
+            error=str(e),
+        )
+        return [], None, e
+
+
 def synthesize(
     text: str,
     *,
@@ -173,21 +231,14 @@ def synthesize(
     samples_list: list = []
     sample_rate = 24000
     last_error: Exception | None = None
-    for i, chunk in enumerate(chunks):
-        try:
-            samples, sr = kokoro.create(chunk, voice=voice, speed=speed, lang=lang)
-            samples_list.append(samples)
-            sample_rate = sr
-        except Exception as e:  # noqa: BLE001
-            last_error = e
-            log.warning(
-                "kokoro.chunk_failed",
-                index=i,
-                chars=len(chunk),
-                preview=chunk[:60],
-                error=str(e),
-            )
-            continue
+    for chunk in chunks:
+        parts, sr, err = _create_with_resplit(kokoro, chunk, voice, speed, lang)
+        if err is not None:
+            last_error = err
+        if parts:
+            samples_list.extend(parts)
+            if sr:
+                sample_rate = sr
 
     if not samples_list:
         # Raise instead of returning empty audio: a silent 0-byte WAV renders in

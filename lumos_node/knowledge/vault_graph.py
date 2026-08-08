@@ -285,12 +285,22 @@ def _content_search(query: str, roots: list[Path], limit: int) -> tuple[list[dic
     cmd = [rg, "--json", "-i", "--max-count", "2", "-g", "*.md", "-e", query]
     cmd += [str(r) for r in roots]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
-    except (subprocess.SubprocessError, OSError) as e:
-        log.info("vault.rg_failed", error=str(e))
+        # MUST pin encoding: bare text=True decodes with the OS locale (cp1252 on
+        # Windows), which blows up on the UTF-8 in real notes (sigils, °, emoji,
+        # Welsh) — the decode happens in subprocess's reader THREAD, so it doesn't
+        # raise here; stdout silently comes back None and the caller explodes.
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=20,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except Exception as e:  # noqa: BLE001 - best-effort; must never break a turn
+        log.info("vault.rg_failed", error=f"{type(e).__name__}: {e}")
         return [], "error"
     hits: list[dict] = []
-    for line in proc.stdout.splitlines():
+    for line in (proc.stdout or "").splitlines():
         try:
             obj = json.loads(line)
         except ValueError:
