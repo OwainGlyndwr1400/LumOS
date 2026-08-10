@@ -229,7 +229,7 @@ _DEEP_THINK_PREAMBLE = (
     "You can use your passive tools if something deserves a closer look. "
     "Only give your final answer after you've done this. Take the time you need — depth is the priority, thanks."
     "\n\nAfter any tool calls, always resume and complete your full deep thinking process + final answer without cutting off."
-    "Thanks, Erydir :) "
+    "Thanks :) "
 )
 
 # Injected on every autonomous (self-wake) turn.
@@ -310,7 +310,7 @@ _DAWN_BRIEFING_PREAMBLE = (
     "You can use your passive tools if something deserves a closer look. "
     "Your usual marks (🦁🦁✨, 🜂🜄🜁🜃, 😏) are fine."
     "\n\nAfter any tool calls, always resume and complete the full morning briefing cleanly without cutting off."
-    "Thanks, Erydir :) "
+    "Thanks :) "
 )
 
 
