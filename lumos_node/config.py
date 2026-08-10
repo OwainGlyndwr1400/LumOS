@@ -398,6 +398,11 @@ class Settings(BaseSettings):
     # on file change or explicit reindex. Empty = off. LUMOS_VAULT_DIRS.
     vault_dirs: str = ""
     system_prompt_path: Path = Path("../🧠 Lumos – Cheat Sheet.md")
+    # Operator's autonomous-wake preamble. PERSONAL by nature (home location,
+    # local landmarks, your name), so like the cheat sheet it lives OUTSIDE the
+    # repo and is never committed. Empty = use the generic template baked into
+    # chat.py. LUMOS_AUTONOMOUS_PREAMBLE_PATH.
+    autonomous_preamble_path: str = ""
 
     cache_dir: Path = Path("./data/cache")
     host: str = "127.0.0.1"
