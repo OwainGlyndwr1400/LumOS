@@ -18,6 +18,9 @@ log = get_logger(__name__)
 _QUIRK_COMPLETION_TOKENS = "max_completion_tokens"
 _QUIRK_NO_SAMPLING = "no_sampling"
 _QUIRK_NO_REASONING = "reasoning_effort_none"
+# /v1/responses only: a NON-reasoning model (gpt-4o) rejects the `reasoning`
+# block outright — drop it and the same responses call works fine.
+_QUIRK_NO_REASONING_BLOCK = "no_reasoning_block"
 _model_quirks: dict[tuple[str, str], set[str]] = {}
 
 # Quirks that cost real capability get an explicit note — a silent downgrade is
@@ -49,6 +52,11 @@ def _learn_quirk(text: str) -> str | None:
     # "Function tools with reasoning_effort are not supported ... set
     #  reasoning_effort to 'none'". Lumos always sends tools, so without this
     # every single turn 400s on those models.
+    # "reasoning.effort" (dot) is the /responses payload field — a non-reasoning
+    # model rejects the whole block. "reasoning_effort" (underscore) is the
+    # chat/completions param, which means the OPPOSITE fix (pin it to 'none').
+    if "reasoning.effort" in low or ("reasoning" in low and "unsupported parameter" in low):
+        return _QUIRK_NO_REASONING_BLOCK
     if "reasoning_effort" in low:
         return _QUIRK_NO_REASONING
     if rejected and ("temperature" in low or "top_p" in low):
@@ -84,6 +92,91 @@ class CompletionChunk(BaseModel):
     usage: dict[str, Any] | None = None
 
 
+# ── OpenAI /v1/responses translation (reasoning models WITH tools) ────────────
+# gpt-5.6-terra & the o-series refuse function tools on /chat/completions unless
+# reasoning is off. /v1/responses allows tools AND reasoning together but uses a
+# different request/response shape. We translate at the CLIENT boundary so chat()
+# still returns the same {role, content, tool_calls, usage} dict the tool loop
+# already consumes — nothing downstream changes.
+
+
+def _to_responses_input(messages: list[ChatMessage]) -> list[dict[str, Any]]:
+    """Chat messages -> /responses `input` items. Assistant tool_calls become
+    function_call items; role='tool' results become function_call_output items."""
+    out: list[dict[str, Any]] = []
+    for m in messages:
+        if m.role == "tool":
+            out.append({
+                "type": "function_call_output",
+                "call_id": m.tool_call_id or "",
+                "output": m.content if isinstance(m.content, str) else str(m.content),
+            })
+        elif m.role == "assistant" and m.tool_calls:
+            if m.content:
+                out.append({"role": "assistant", "content": m.content})
+            for tc in m.tool_calls:
+                fn = tc.get("function") or {}
+                out.append({
+                    "type": "function_call",
+                    "call_id": tc.get("id", ""),
+                    "name": fn.get("name", ""),
+                    "arguments": fn.get("arguments", "{}"),
+                })
+        elif m.content is not None:
+            out.append({"role": m.role, "content": m.content})
+    return out
+
+
+def _to_responses_tools(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Chat tool schema {type:function, function:{...}} -> FLAT responses schema."""
+    flat: list[dict[str, Any]] = []
+    for t in tools or []:
+        fn = t.get("function") or {}
+        flat.append({
+            "type": "function",
+            "name": fn.get("name", ""),
+            "description": fn.get("description", ""),
+            "parameters": fn.get("parameters") or {"type": "object", "properties": {}},
+        })
+    return flat
+
+
+def _from_responses_output(data: dict[str, Any]) -> dict[str, Any]:
+    """/responses output -> the chat-completions-shaped message dict the tool loop
+    consumes: concatenate output_text, map function_call -> tool_calls, map usage."""
+    items = data.get("output") or []
+    if not items and not data.get("output_text"):
+        raise RuntimeError(f"responses returned no output: {data.get('error') or data}")
+    text_parts: list[str] = []
+    tool_calls: list[dict[str, Any]] = []
+    for it in items:
+        itype = it.get("type")
+        if itype == "message":
+            for c in it.get("content") or []:
+                if c.get("type") in ("output_text", "text") and c.get("text"):
+                    text_parts.append(c["text"])
+        elif itype == "function_call":
+            tool_calls.append({
+                "id": it.get("call_id") or it.get("id") or "",
+                "type": "function",
+                "function": {"name": it.get("name", ""), "arguments": it.get("arguments", "{}")},
+            })
+        # "reasoning" items carry the CoT summary — deliberately not surfaced.
+    content = "".join(text_parts) or (data.get("output_text") or None)
+    msg: dict[str, Any] = {"role": "assistant", "content": content}
+    if tool_calls:
+        msg["tool_calls"] = tool_calls
+    u = data.get("usage") or {}
+    if u:
+        msg["usage"] = {
+            "prompt_tokens": u.get("input_tokens"),
+            "completion_tokens": u.get("output_tokens"),
+            "total_tokens": u.get("total_tokens"),
+        }
+    msg["finish_reason"] = data.get("status") or "stop"
+    return msg
+
+
 class LMStudioClient:
     def __init__(
         self,
@@ -95,6 +188,12 @@ class LMStudioClient:
         self.base_url = (base_url or settings.lm_studio_base_url).rstrip("/")
         self.api_key = api_key or settings.lm_studio_api_key
         self._client = httpx.AsyncClient(timeout=timeout)
+        # Route through /v1/responses only when explicitly enabled AND actually
+        # pointed at OpenAI — so a stray flag can never redirect a local call.
+        self._use_responses = (
+            settings.openai_use_responses_api and "openai.com" in self.base_url
+        )
+        self._reasoning_effort = settings.openai_reasoning_effort
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -159,6 +258,51 @@ class LMStudioClient:
         resp.raise_for_status()
         return resp.content, resp.headers.get("content-type", _mime_for(response_format))
 
+    async def _chat_responses(
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None,
+        max_tokens: int | None,
+    ) -> dict[str, Any]:
+        """Non-streaming call via OpenAI /v1/responses — reasoning stays ON while
+        tools work. Returns the SAME message dict shape as chat() (see the
+        _from_responses_output translator), so the tool loop is unchanged."""
+        body: dict[str, Any] = {
+            "model": model,
+            "input": _to_responses_input(messages),
+            "reasoning": {"effort": self._reasoning_effort},
+            "max_output_tokens": max_tokens or get_settings().openai_max_tokens,
+        }
+        rtools = _to_responses_tools(tools)
+        if rtools:
+            body["tools"] = rtools
+            body["tool_choice"] = "auto"
+        # Same learn-from-the-400 loop as the chat/completions path: a NON-reasoning
+        # model (gpt-4o) served via /responses rejects the `reasoning` block, so
+        # drop it and retry. Cached per (endpoint, model) — one retry, once.
+        quirks = _model_quirks.setdefault((self.base_url, model), set())
+        for _ in range(3):
+            if _QUIRK_NO_REASONING_BLOCK in quirks:
+                body.pop("reasoning", None)
+            resp = await self._client.post(
+                f"{self.base_url}/responses",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json=body,
+            )
+            if resp.status_code != 400:
+                break
+            learned = _learn_quirk(resp.text)
+            if learned is None or learned in quirks:
+                break
+            quirks.add(learned)
+            log.info(
+                "llm.quirk_learned", model=model, quirk=learned, path="responses",
+                note=_QUIRK_NOTES.get(learned),
+            )
+        resp.raise_for_status()
+        return _from_responses_output(resp.json())
+
     async def chat(
         self,
         model: str,
@@ -182,6 +326,11 @@ class LMStudioClient:
         models is `enable_thinking: bool`. Models that don't recognize a key ignore
         it harmlessly, so this is safe to pass even on non-thinking models.
         """
+        # Reasoning-model path: tools + reasoning via /v1/responses. Structured
+        # output (response_format) stays on chat/completions — it uses a different
+        # shape there and isn't part of the tool/wake path.
+        if self._use_responses and response_format is None:
+            return await self._chat_responses(model, messages, tools, max_tokens)
         payload: dict[str, Any] = {
             "model": model,
             "messages": [m.model_dump(exclude_none=True) for m in messages],
@@ -249,6 +398,17 @@ class LMStudioClient:
         chat_template_kwargs: dict[str, Any] | None = None,
         top_p: float | None = None,
     ) -> AsyncIterator[CompletionChunk]:
+        # Responses path, first cut: one non-streaming /responses call, emitted as
+        # a single delta + finished chunk. With tools always on, the operator path
+        # almost always takes the fast-path reveal anyway; correctness over
+        # typewriter here. (Real responses-SSE streaming is a later upgrade.)
+        if self._use_responses:
+            msg = await self._chat_responses(model, messages, None, max_tokens)
+            text = msg.get("content") or ""
+            if text:
+                yield CompletionChunk(delta=text)
+            yield CompletionChunk(finished=True, usage=msg.get("usage"))
+            return
         payload: dict[str, Any] = {
             "model": model,
             "messages": [m.model_dump(exclude_none=True) for m in messages],

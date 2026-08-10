@@ -96,6 +96,13 @@ class Settings(BaseSettings):
     openai_temperature: float = Field(default=0.65, ge=0.0, le=2.0)
     openai_top_p: float = Field(default=0.95, ge=0.0, le=1.0)
     openai_max_tokens: int = Field(default=8192, ge=256, le=131072)
+    # Reasoning models (gpt-5.6-terra, o-series) REFUSE function tools on
+    # /v1/chat/completions unless reasoning is off. Since Lumos is tool-first, the
+    # default path disables their reasoning to keep tools. Flip this ON to route
+    # the OpenAI provider through /v1/responses instead — tools AND reasoning
+    # together. OpenAI-only; local LM Studio is unaffected. LUMOS_OPENAI_USE_RESPONSES.
+    openai_use_responses_api: bool = False
+    openai_reasoning_effort: str = "medium"  # low | medium | high (responses path)
 
     # Output (completion) token cap for UNWATCHED autonomous wakes — the runaway
     # backstop (operator turns stay uncapped). REASONING models (qwen3.5) spend
