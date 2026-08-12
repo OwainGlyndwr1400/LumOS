@@ -128,20 +128,33 @@ class VaultGraph:
         }
 
     def search(self, query: str, limit: int = 8) -> dict:
+        """Name + content search. Models query in sentences ("COSMOS 2489 Rodnik
+        Strela military satellite"), so matching the whole string literally
+        returns nothing even when every word is in the vault. Name matching
+        therefore scores per-TOKEN (full-phrase match ranks highest), and
+        content search falls back to term-ranked OR matching (see
+        _content_search)."""
         q = query.strip().lower()
-        name_hits: list[dict] = []
+        tokens = _tokenize(query)
+        scored: list[tuple[int, dict]] = []
         if q:
             for key, refs in self.nodes.items():
-                if q in key:
-                    for r in refs:
-                        name_hits.append({
-                            "note": r.name, "vault": r.vault,
-                            "match": "name",
-                            "links": len(self.outgoing.get(key, [])),
-                            "backlinks": len(self.backlinks.get(key, [])),
-                        })
-        # Rank name hits by connectedness (hub notes first) — the big dots.
-        name_hits.sort(key=lambda h: h["links"] + h["backlinks"], reverse=True)
+                phrase = q in key
+                matched = [t for t in tokens if t in key]
+                if not phrase and not matched:
+                    continue
+                score = (len(tokens) + 1) if phrase else len(matched)
+                for r in refs:
+                    scored.append((score, {
+                        "note": r.name, "vault": r.vault,
+                        "match": "name",
+                        "links": len(self.outgoing.get(key, [])),
+                        "backlinks": len(self.backlinks.get(key, [])),
+                    }))
+        # Rank: most query-terms matched first, then connectedness (hub notes —
+        # the big dots).
+        scored.sort(key=lambda s: (s[0], s[1]["links"] + s[1]["backlinks"]), reverse=True)
+        name_hits = [h for _s, h in scored]
         content_hits, engine = _content_search(query, [Path(r) for r in self.roots], limit)
         return {
             "query": query,
@@ -273,16 +286,41 @@ def build_graph(vaults: list[Path]) -> VaultGraph:
 # ── content search (ripgrep-preferred, name-only fallback) ──────────────────
 
 
-def _content_search(query: str, roots: list[Path], limit: int) -> tuple[list[dict], str]:
-    """Grep note *bodies* for the query. Uses ripgrep (--json → robust across
-    Windows drive-letter paths) when present; returns (hits, engine). Absent rg
-    → ([], "none") and the caller still has instant name matches from the graph."""
-    if not query.strip() or not roots:
-        return [], "none"
+# Generic English stopwords ONLY — domain words ("satellite", "recon",
+# "overhead") stay as terms, because ranking-by-terms-matched handles their
+# commonness naturally while still letting them contribute.
+_STOPWORDS = frozenset({
+    "the", "and", "for", "with", "that", "this", "from", "are", "was", "were",
+    "has", "have", "had", "its", "any", "all", "into", "onto", "about", "over",
+    "what", "which", "when", "where", "who", "how", "not", "but", "you", "your",
+})
+
+
+def _tokenize(query: str) -> list[str]:
+    """Query → search terms: lowercase alnum runs, stopwords out, order-stable
+    dedupe, capped. Digit runs ≥2 survive the length filter (NORAD ids like
+    2489 are exactly what an operator searches for)."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in re.findall(r"[a-z0-9]+", query.lower()):
+        if len(t) < 3 and not t.isdigit():
+            continue
+        if len(t) < 2 or t in _STOPWORDS or t in seen:
+            continue
+        seen.add(t)
+        out.append(t)
+    return out[:8]
+
+
+def _run_rg(patterns: list[str], roots: list[Path], per_file_cap: int) -> list[dict] | None:
+    """One ripgrep pass (OR of patterns) → [{path, line, snippet, matched}].
+    None = rg unavailable/failed (caller reports engine accordingly)."""
     rg = shutil.which("rg")
     if not rg:
-        return [], "unavailable (install ripgrep for content search)"
-    cmd = [rg, "--json", "-i", "--max-count", "2", "-g", "*.md", "-e", query]
+        return None
+    cmd = [rg, "--json", "-i", "--max-count", str(per_file_cap), "-g", "*.md"]
+    for p in patterns:
+        cmd += ["-e", p]
     cmd += [str(r) for r in roots]
     try:
         # MUST pin encoding: bare text=True decodes with the OS locale (cp1252 on
@@ -298,8 +336,8 @@ def _content_search(query: str, roots: list[Path], limit: int) -> tuple[list[dic
         )
     except Exception as e:  # noqa: BLE001 - best-effort; must never break a turn
         log.info("vault.rg_failed", error=f"{type(e).__name__}: {e}")
-        return [], "error"
-    hits: list[dict] = []
+        return None
+    out: list[dict] = []
     for line in (proc.stdout or "").splitlines():
         try:
             obj = json.loads(line)
@@ -308,17 +346,69 @@ def _content_search(query: str, roots: list[Path], limit: int) -> tuple[list[dic
         if obj.get("type") != "match":
             continue
         data = obj.get("data", {})
-        path = (data.get("path") or {}).get("text", "")
-        snippet = (data.get("lines") or {}).get("text", "").strip()
-        hits.append({
-            "note": Path(path).stem,
+        matched = {
+            (sm.get("match") or {}).get("text", "").lower()
+            for sm in data.get("submatches") or []
+        }
+        out.append({
+            "path": (data.get("path") or {}).get("text", ""),
             "line": data.get("line_number"),
-            "snippet": snippet[:200],
-            "match": "content",
+            "snippet": ((data.get("lines") or {}).get("text", "")).strip()[:200],
+            "matched": matched,
         })
-        if len(hits) >= limit * 3:
+        if len(out) >= 400:  # hard cap on parse work for a hot query
             break
-    return hits, "ripgrep"
+    return out
+
+
+def _content_search(query: str, roots: list[Path], limit: int) -> tuple[list[dict], str]:
+    """Grep note *bodies* for the query, tolerant of sentence-style queries.
+
+    Models ask in sentences ("COSMOS 2489 Rodnik Strela military satellite");
+    as a literal phrase that matches nothing even when every word is present.
+    So: try the exact phrase first (strongest signal), and when it comes up
+    empty, split into terms, OR-match them, and rank notes by HOW MANY distinct
+    terms they contain. Each hit carries its matched terms so the model can see
+    why it surfaced."""
+    if not query.strip() or not roots:
+        return [], "none"
+    tokens = _tokenize(query)
+
+    # Pass 1 — exact phrase (or the query as-is when it is a single term).
+    raw = _run_rg([query.strip()], roots, per_file_cap=2)
+    if raw is None:
+        return [], "unavailable (install ripgrep for content search)"
+    if raw or len(tokens) <= 1:
+        hits = [
+            {"note": Path(m["path"]).stem, "line": m["line"],
+             "snippet": m["snippet"], "match": "content"}
+            for m in raw[: limit * 3]
+        ]
+        return hits, "ripgrep"
+
+    # Pass 2 — term-ranked OR search.
+    raw = _run_rg(tokens, roots, per_file_cap=6)
+    if not raw:
+        return [], f"ripgrep (no hits for phrase or any of {len(tokens)} terms)"
+    per_file: dict[str, dict] = {}
+    for m in raw:
+        f = per_file.setdefault(
+            m["path"],
+            {"terms": set(), "count": 0, "line": m["line"], "snippet": m["snippet"]},
+        )
+        f["terms"] |= {t for t in m["matched"] if t in tokens}
+        f["count"] += 1
+    ranked = sorted(
+        per_file.items(),
+        key=lambda kv: (len(kv[1]["terms"]), kv[1]["count"]),
+        reverse=True,
+    )
+    hits = [
+        {"note": Path(path).stem, "line": f["line"], "snippet": f["snippet"],
+         "match": "content", "terms": sorted(f["terms"])}
+        for path, f in ranked[: limit * 3]
+    ]
+    return hits, f"ripgrep · phrase had 0, ranked by terms matched of {tokens}"
 
 
 # ── cache + singleton access ─────────────────────────────────────────────────
